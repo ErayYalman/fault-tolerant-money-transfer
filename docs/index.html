@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Fintech - Institutional Distributed Ledger Console</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS with custom theme config matching all screens -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-background": "#191c1e",
+            "primary-container": "#0f4c81",
+            "surface-container": "#eceef0",
+            "secondary-fixed": "#cce5ff",
+            "on-secondary-container": "#46647e",
+            "primary-fixed-dim": "#a0c9ff",
+            "on-primary-fixed-variant": "#07497d",
+            "on-primary-container": "#8ebdf9",
+            "on-tertiary": "#ffffff",
+            "on-secondary-fixed-variant": "#2b4963",
+            "inverse-primary": "#a0c9ff",
+            "surface-container-high": "#e6e8ea",
+            "on-tertiary-fixed-variant": "#6f3800",
+            "on-tertiary-container": "#f9a767",
+            "on-primary": "#ffffff",
+            "secondary-container": "#c1e0ff",
+            "primary": "#00355f",
+            "surface-dim": "#d8dadc",
+            "inverse-surface": "#2d3133",
+            "tertiary-fixed-dim": "#ffb780",
+            "secondary-fixed-dim": "#abcae8",
+            "on-secondary": "#ffffff",
+            "surface-variant": "#e0e3e5",
+            "on-surface-variant": "#42474f",
+            "info": "#3B82F6",
+            "on-primary-fixed": "#001c37",
+            "tertiary": "#532800",
+            "warning": "#F59E0B",
+            "secondary": "#43617c",
+            "surface": "#f7f9fb",
+            "on-error-container": "#93000a",
+            "surface-tint": "#2d6197",
+            "tertiary-fixed": "#ffdcc4",
+            "slate-500": "#64748B",
+            "inverse-on-surface": "#eff1f3",
+            "surface-container-highest": "#e0e3e5",
+            "surface-bright": "#f7f9fb",
+            "success": "#10B981",
+            "on-tertiary-fixed": "#2f1400",
+            "surface-container-low": "#f2f4f6",
+            "on-surface": "#191c1e",
+            "tertiary-container": "#743b00",
+            "on-error": "#ffffff",
+            "outline-variant": "#c2c7d1",
+            "background": "#f7f9fb",
+            "border-subtle": "#E2E8F0",
+            "surface-container-lowest": "#ffffff",
+            "error-container": "#ffdad6",
+            "outline": "#727780",
+            "on-secondary-fixed": "#001d31",
+            "slate-900": "#0F172A",
+            "error": "#EF4444",
+            "primary-fixed": "#d2e4ff"
+          },
+          borderRadius: {
+            DEFAULT: "0.125rem",
+            lg: "0.25rem",
+            xl: "0.5rem",
+            full: "0.75rem"
+          },
+          spacing: {
+            gutter: "24px",
+            "margin-page": "32px",
+            "container-max": "1440px",
+            unit: "4px"
+          },
+          fontFamily: {
+            "code-sm": ["JetBrains Mono", "monospace"],
+            "headline-lg": ["Inter", "sans-serif"],
+            "body-sm": ["Inter", "sans-serif"],
+            "headline-sm": ["Inter", "sans-serif"],
+            "headline-md": ["Inter", "sans-serif"],
+            "label-caps": ["Inter", "sans-serif"],
+            "body-md": ["Inter", "sans-serif"],
+            "body-lg": ["Inter", "sans-serif"]
+          },
+          fontSize: {
+            "code-sm": ["12px", { lineHeight: "16px", fontWeight: "400" }],
+            "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "600" }],
+            "body-sm": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+            "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "500" }],
+            "headline-md": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }],
+            "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "700" }],
+            "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+            "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }]
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f7f9fb;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-family: 'Material Symbols Outlined';
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1;
+    }
+    .btn-press:active {
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+      transform: scale(0.985);
+    }
+  </style>
+
+  <!-- Required Scripts -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+  <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+  <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body class="bg-surface text-on-surface antialiased overflow-x-hidden min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { createRoot } = ReactDOM;
+    const { MemoryRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
+
+    // --- SHARED SIDEBAR COMPONENT ---
+    function Sidebar({ onRunReconciliation }) {
+      const location = useLocation();
+      const navigate = useNavigate();
+      const path = location.pathname;
+
+      const isOverview = path === "/" || path === "/overview";
+      const isNewTransfer = path === "/transfer/new";
+      const isTransfers = path.startsWith("/transfer") && path !== "/transfer/new";
+      const isReconcile = path.startsWith("/reconciliation");
+      const isAnomaly = path.startsWith("/anomalies");
+
+      return (
+        <aside className="w-[280px] h-screen sticky top-0 left-0 bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline flex flex-col p-gutter flex-shrink-0 z-40 hidden md:flex">
+          {/* Brand Header */}
+          <Link to="/" className="flex items-center gap-3 mb-6 px-1 group cursor-pointer">
+            <div className="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container shadow-sm group-hover:scale-105 transition-transform">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dataset</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed leading-tight">Fintech</span>
+              <span className="font-body-sm text-[11px] text-slate-500">TransactMotor System</span>
+            </div>
+          </Link>
+
+          {/* Quick Action */}
+          <div className="mb-4">
+            <Link
+              to="/transfer/new"
+              className={`w-full py-2 px-3 rounded-lg font-body-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm ${
+                isNewTransfer 
+                  ? "bg-primary text-on-primary ring-2 ring-primary-container" 
+                  : "bg-primary-container text-on-primary hover:bg-primary btn-press"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <span>New Transfer</span>
+            </Link>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="flex flex-col gap-1 w-full flex-1">
+            <Link
+              to="/overview"
+              className={`flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-body-md transition-colors ${
+                isOverview
+                  ? "bg-secondary-container text-on-secondary-container font-bold"
+                  : "text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={isOverview ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
+              <span>System Overview</span>
+            </Link>
+
+            <Link
+              to="/transfers/success-demo"
+              className={`flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-body-md transition-colors ${
+                isTransfers
+                  ? "bg-secondary-fixed text-on-secondary-fixed-variant font-bold"
+                  : "text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={isTransfers ? { fontVariationSettings: "'FILL' 1" } : {}}>swap_horiz</span>
+              <span>Transfers</span>
+            </Link>
+
+            <Link
+              to="/reconciliation"
+              className={`flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-body-md transition-colors ${
+                isReconcile
+                  ? "bg-secondary-fixed text-on-secondary-fixed-variant font-bold"
+                  : "text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={isReconcile ? { fontVariationSettings: "'FILL' 1" } : {}}>rule</span>
+              <span>Reconciliation</span>
+            </Link>
+
+            <Link
+              to="/anomalies"
+              className={`flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-body-md transition-colors ${
+                isAnomaly
+                  ? "bg-secondary-fixed text-on-secondary-fixed-variant font-bold"
+                  : "text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container"
+              }`}
+            >
+              <span className="material-symbols-outlined" style={isAnomaly ? { fontVariationSettings: "'FILL' 1" } : {}}>security</span>
+              <span>Anomaly Reports</span>
+            </Link>
+          </nav>
+
+          {/* Trigger Reconciliation */}
+          <div className="mt-auto pt-4 border-t border-outline-variant/60">
+            <button
+              onClick={() => {
+                if (onRunReconciliation) onRunReconciliation();
+                else navigate("/reconciliation");
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-surface-container-highest border border-border-subtle text-on-surface py-2.5 rounded-lg font-body-sm text-body-sm hover:bg-surface-container-high transition-colors btn-press"
+            >
+              <span className="material-symbols-outlined text-[18px] text-primary">play_circle</span>
+              Run Reconciliation
+            </button>
+          </div>
+
+          {/* User Profile */}
+          <div className="flex items-center gap-3 px-2 py-3 mt-3 border-t border-outline-variant/50">
+            <img
+              alt="System Administrator Profile"
+              className="w-8 h-8 rounded-full object-cover bg-surface-container-high border border-border-subtle"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4ZzZuYg--XXkIivZL6H20uVk2jQFbnGdtJEFmf7HEJ7ZVsd0IVxJaGivUobL1Zp3lPR4VQdJkHRkCEmsu608lcBtRIskvQdfZ8eUlw2zE2pNIaQBVqa5SBYTzg8PiGcf96iQ3QGdCwTBzEBp8r98dUxICKPbbXV_XPBwEQBftm6IwcBm629GVMudtfI7T1R9W2KRkhGvloz7loOTpLjVUugTGJt_7g07BklIM9oJFoXPytpuM3B2Y"
+            />
+            <div className="flex flex-col overflow-hidden">
+              <span className="font-body-sm text-body-sm font-semibold truncate text-on-surface">J. Doe</span>
+              <span className="font-code-sm text-code-sm text-slate-500 truncate">ID: SYS-0982</span>
+            </div>
+          </div>
+        </aside>
+      );
+    }
+
+    // --- SHARED TOPBAR COMPONENT ---
+    function Header({ title = "Fintech", searchPlaceholder = "Search ID, Account, or Amount..." }) {
+      const [searchTerm, setSearchTerm] = useState("");
+      const [showSearchFeedback, setShowSearchFeedback] = useState(false);
+      const navigate = useNavigate();
+
+      const handleSearchSubmit = (e) => {
+        if (e.key === "Enter" && searchTerm.trim()) {
+          setShowSearchFeedback(true);
+          setTimeout(() => setShowSearchFeedback(false), 2200);
+        }
+      };
+
+      return (
+        <header className="flex justify-between items-center h-16 px-gutter w-full sticky top-0 z-30 bg-surface-container-lowest dark:bg-inverse-surface border-b border-outline-variant dark:border-outline shadow-sm">
+          <div className="flex items-center gap-6">
+            <Link to="/overview" className="md:hidden flex items-center gap-2">
+              <div className="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-white">
+                <span className="material-symbols-outlined text-[18px]">account_balance</span>
+              </div>
+              <span className="font-headline-sm text-headline-sm font-semibold text-primary">Lumina</span>
+            </Link>
+            <span className="font-headline-sm text-headline-sm font-semibold text-on-surface dark:text-inverse-on-surface hidden md:block">
+              {title}
+            </span>
+
+            {/* Global Search */}
+            <div className="relative group hidden sm:block w-72 ml-2">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">search</span>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleSearchSubmit}
+                className="w-full pl-9 pr-3 py-1.5 bg-surface border border-border-subtle rounded text-body-sm font-body-sm text-on-surface placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                placeholder={searchPlaceholder}
+                type="text"
+              />
+              {showSearchFeedback && (
+                <div className="absolute top-10 left-0 bg-slate-900 text-white text-xs px-3 py-1.5 rounded shadow-lg z-50">
+                  Filtered for: "{searchTerm}"
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-slate-500">
+              <button 
+                onClick={() => alert("Notification center: 0 unresolved ledger alerts.")}
+                className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" 
+                title="Notifications"
+              >
+                <span className="material-symbols-outlined text-[20px]">notifications</span>
+              </button>
+              <Link 
+                to="/overview"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" 
+                title="History"
+              >
+                <span className="material-symbols-outlined text-[20px]">history</span>
+              </Link>
+            </div>
+
+            <div className="h-6 w-px bg-border-subtle mx-1 hidden sm:block"></div>
+
+            <Link to="/transfer/new" className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-primary text-on-primary rounded text-body-sm font-medium hover:bg-primary-container transition-colors">
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              New Transfer
+            </Link>
+
+            <div className="h-8 w-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center border border-border-subtle overflow-hidden ml-1 cursor-pointer">
+              <img
+                alt="User Profile"
+                className="object-cover w-full h-full"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgQkXZFu3tqEMgoK0zfNC47kzZhdZhjv-nFnSGiee3M-uWYWitKsrkWismJvYMeptpideMy0LdHVclt9m01dCbISZ2VocQjqAfmrus8htPnjBlDwRczvm0_GWS57KSKQYhqRCuF3sKkSV5IxiWcNCCHhWhWPyUQ44sx5ys_cDsXjkmVOf-qkCY8g77F6Xu00wy4uMRKCj-Ppwy5QVf1-wWma3NQs0zhoy8H6k9UZ9P7nKNf4oXC0oJ"
+              />
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    // --- SCREEN 7 & MAIN ROOT: EXECUTIVE SYSTEM OVERVIEW ---
+    function ExecutiveOverviewScreen() {
+      const navigate = useNavigate();
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="Executive System Overview" />
+            <main className="p-margin-page max-w-container-max mx-auto w-full flex-1 space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-2">
+                <div>
+                  <h1 className="text-headline-lg font-headline-lg text-slate-900 mb-1">Executive System Overview</h1>
+                  <p className="text-body-md font-body-md text-on-surface-variant">Fintech Distributed Banking System Status</p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => alert("Generating audit system report export (PDF/CSV)...")}
+                    className="px-4 py-2 border border-border-subtle rounded text-secondary font-label-caps text-label-caps hover:bg-surface-container-low transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">download</span>
+                    Export Report
+                  </button>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="px-4 py-2 bg-primary rounded text-on-primary font-label-caps text-label-caps hover:bg-on-primary-fixed-variant transition-colors shadow-sm btn-press flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">refresh</span>
+                    Refresh Data
+                  </button>
+                </div>
+              </div>
+
+              {/* Bento Row Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div 
+                  onClick={() => navigate("/transfers/success-demo")} 
+                  className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="absolute right-0 top-0 w-24 h-24 bg-secondary-container rounded-bl-full opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                  <h3 className="text-label-caps font-label-caps text-on-surface-variant mb-2 uppercase tracking-wider">Total Transfers Today</h3>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-headline-lg font-headline-lg text-slate-900">14,205</span>
+                    <span className="text-body-sm font-body-sm text-success font-medium flex items-center">
+                      <span className="material-symbols-outlined text-xs mr-0.5">arrow_upward</span>
+                      12%
+                    </span>
+                  </div>
+                  <p className="text-code-sm font-code-sm text-slate-500 mt-2">vs. yesterday</p>
+                </div>
+
+                <div 
+                  onClick={() => navigate("/reconciliation")} 
+                  className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group border-l-4 border-l-error cursor-pointer"
+                >
+                  <h3 className="text-label-caps font-label-caps text-on-surface-variant mb-2 uppercase tracking-wider">Discrepancies Found</h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-headline-lg font-headline-lg text-slate-900">12</span>
+                    <div className="w-10 h-10 rounded-full bg-error-container flex items-center justify-center text-error">
+                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
+                    </div>
+                  </div>
+                  <p className="text-code-sm font-code-sm text-error mt-2 font-medium">Action Required (Critical)</p>
+                </div>
+
+                <div 
+                  onClick={() => navigate("/anomalies")} 
+                  className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer"
+                >
+                  <h3 className="text-label-caps font-label-caps text-on-surface-variant mb-2 uppercase tracking-wider">Avg Anomaly Score</h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-headline-lg font-headline-lg text-slate-900">0.14</span>
+                    <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-success">
+                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-surface-container h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div className="bg-success h-full" style={{ width: "14%" }}></div>
+                  </div>
+                  <p className="text-code-sm font-code-sm text-slate-500 mt-2">System Stable (ML Forest)</p>
+                </div>
+
+                <div 
+                  onClick={() => navigate("/transfer/failure-compensation")} 
+                  className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer"
+                >
+                  <h3 className="text-label-caps font-label-caps text-on-surface-variant mb-2 uppercase tracking-wider">Compensated Transfers</h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-headline-lg font-headline-lg text-slate-900">84</span>
+                    <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-warning">
+                      <span className="material-symbols-outlined">settings_backup_restore</span>
+                    </div>
+                  </div>
+                  <p className="text-code-sm font-code-sm text-slate-500 mt-2">Saga pattern outcomes</p>
+                </div>
+              </div>
+
+              {/* Side-by-side Tables */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+                {/* Recent Discrepancies */}
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-lg shadow-sm flex flex-col">
+                  <div className="p-5 border-b border-border-subtle flex justify-between items-center bg-surface-container-low/50 rounded-t-lg">
+                    <h3 className="text-label-caps font-label-caps text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm text-primary">rule</span>
+                      Recent Discrepancies
+                    </h3>
+                    <Link to="/reconciliation" className="text-primary hover:text-primary-fixed-dim text-body-sm font-medium transition-colors">
+                      View All (12)
+                    </Link>
+                  </div>
+                  <div className="p-0 overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-surface-container-low border-b border-border-subtle">
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold">Correlation ID</th>
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold">Type</th>
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold text-right">Amount</th>
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-body-sm font-body-sm text-slate-900 divide-y divide-border-subtle">
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">c9f8-4b2a-11e9</td>
+                          <td className="py-3 px-5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-error-container text-error border border-error/20">
+                              MISSING_CREDIT
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-right font-code-sm font-medium">$45,200.00</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/transfer/failure-compensation" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="Investigate">
+                              <span className="material-symbols-outlined text-sm">search</span>
+                            </Link>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">a1b2-3c4d-55f6</td>
+                          <td className="py-3 px-5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning/20 text-warning border border-warning/30">
+                              AMOUNT_MISMATCH
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-right font-code-sm font-medium">$1,050.50</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/reconciliation" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="Investigate">
+                              <span className="material-symbols-outlined text-sm">search</span>
+                            </Link>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">e7d6-c5b4-a398</td>
+                          <td className="py-3 px-5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-error-container text-error border border-error/20">
+                              MISSING_CREDIT
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-right font-code-sm font-medium">$12,000.00</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/transfer/failure-compensation" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="Investigate">
+                              <span className="material-symbols-outlined text-sm">search</span>
+                            </Link>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">f9e8-d7c6-b5a4</td>
+                          <td className="py-3 px-5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                              STATE_STALE
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-right font-code-sm font-medium">$300.00</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/transfers/success-demo" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="Investigate">
+                              <span className="material-symbols-outlined text-sm">search</span>
+                            </Link>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* High Risk Transactions */}
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-lg shadow-sm flex flex-col">
+                  <div className="p-5 border-b border-border-subtle flex justify-between items-center bg-surface-container-low/50 rounded-t-lg">
+                    <h3 className="text-label-caps font-label-caps text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm text-warning">warning</span>
+                      High Risk Transactions
+                    </h3>
+                    <Link to="/anomalies" className="text-primary hover:text-primary-fixed-dim text-body-sm font-medium transition-colors">
+                      ML Dashboard
+                    </Link>
+                  </div>
+                  <div className="p-0 overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-surface-container-low border-b border-border-subtle">
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold">Transfer ID</th>
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold text-center">Score</th>
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold">Feature Reason</th>
+                          <th className="py-3 px-5 text-label-caps font-label-caps text-on-surface-variant font-semibold text-center">Logs</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-body-sm font-body-sm text-slate-900 divide-y divide-border-subtle">
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">TRX-8921-XQ</td>
+                          <td className="py-3 px-5 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-error text-white shadow-sm">
+                              0.98
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-on-surface-variant">Velocity Spike (IP Match)</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/anomalies" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="View Logs">
+                              <span className="material-symbols-outlined text-sm">receipt_long</span>
+                            </Link>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">TRX-7742-PL</td>
+                          <td className="py-3 px-5 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-error/90 text-white shadow-sm">
+                              0.92
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-on-surface-variant">Unusual Amount (3x SD)</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/anomalies" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="View Logs">
+                              <span className="material-symbols-outlined text-sm">receipt_long</span>
+                            </Link>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">TRX-1190-KL</td>
+                          <td className="py-3 px-5 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-warning text-white shadow-sm">
+                              0.85
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-on-surface-variant">New Beneficiary (High Risk)</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/anomalies" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="View Logs">
+                              <span className="material-symbols-outlined text-sm">receipt_long</span>
+                            </Link>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-surface-container-low/30 transition-colors">
+                          <td className="py-3 px-5 font-code-sm text-slate-500">TRX-4421-MN</td>
+                          <td className="py-3 px-5 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-warning/80 text-white shadow-sm">
+                              0.81
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-on-surface-variant">Time Anomalous (3AM local)</td>
+                          <td className="py-3 px-5 text-center">
+                            <Link to="/anomalies" className="w-8 h-8 rounded border border-border-subtle hover:bg-surface-container inline-flex items-center justify-center text-secondary transition-colors" title="View Logs">
+                              <span className="material-symbols-outlined text-sm">receipt_long</span>
+                            </Link>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SCREEN 2: NEW MONEY TRANSFER ---
+    function NewTransferScreen() {
+      const navigate = useNavigate();
+      const [fromAccount, setFromAccount] = useState("550e8400-e29b-41d4-a716-446655440000");
+      const [toAccount, setToAccount] = useState("123e4567-e89b-12d3-a456-426614174000");
+      const [amount, setAmount] = useState("500.00");
+      const [currency, setCurrency] = useState("TRY");
+
+      const handleSwap = () => {
+        const temp = fromAccount;
+        setFromAccount(toAccount);
+        setToAccount(temp);
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const generatedId = "TRX-" + Math.floor(100000 + Math.random() * 900000);
+        navigate(`/transfer/initiated?id=${generatedId}&amount=${amount}&currency=${currency}`);
+      };
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="Initiate Transfer" />
+            <main className="flex-1 p-margin-page overflow-y-auto flex items-center justify-center">
+              <div className="w-full max-w-2xl my-auto">
+                <div className="mb-6">
+                  <h2 className="font-headline-lg text-headline-lg text-on-surface mb-2">New Money Transfer</h2>
+                  <p className="font-body-md text-body-md text-slate-500">Initiate a secure transaction between internal accounts with Saga idempotency.</p>
+                </div>
+
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-8 shadow-[0_4px_12px_rgba(15,23,42,0.05)]">
+                  <div className="flex items-center gap-2 mb-6 p-3 bg-surface-container-low rounded border border-outline-variant">
+                    <span className="material-symbols-outlined text-info text-sm">info</span>
+                    <span className="font-body-sm text-body-sm text-on-surface-variant">
+                      Idempotency Key is automatically generated to prevent duplicate processing.
+                    </span>
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* From Account */}
+                    <div className="space-y-2">
+                      <label className="block font-label-caps text-label-caps text-on-surface uppercase tracking-wider" htmlFor="from_account">
+                        From Account ID
+                      </label>
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">account_balance_wallet</span>
+                        <input
+                          id="from_account"
+                          value={fromAccount}
+                          onChange={(e) => setFromAccount(e.target.value)}
+                          required
+                          className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border-border-subtle rounded border focus:ring-2 focus:ring-primary focus:border-primary font-code-sm text-code-sm text-on-surface placeholder:text-slate-500 transition-colors"
+                          placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Swap Icon */}
+                    <div className="flex justify-center -my-2 relative z-10">
+                      <button
+                        type="button"
+                        onClick={handleSwap}
+                        title="Swap Source and Destination"
+                        className="bg-surface-container-lowest border border-border-subtle rounded-full p-1.5 shadow-sm hover:bg-surface-container transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-outline text-[18px]">swap_vert</span>
+                      </button>
+                    </div>
+
+                    {/* To Account */}
+                    <div className="space-y-2">
+                      <label className="block font-label-caps text-label-caps text-on-surface uppercase tracking-wider" htmlFor="to_account">
+                        To Account ID
+                      </label>
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">account_balance</span>
+                        <input
+                          id="to_account"
+                          value={toAccount}
+                          onChange={(e) => setToAccount(e.target.value)}
+                          required
+                          className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border-border-subtle rounded border focus:ring-2 focus:ring-primary focus:border-primary font-code-sm text-code-sm text-on-surface placeholder:text-slate-500 transition-colors"
+                          placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+                        />
+                      </div>
+                    </div>
+
+                    <hr className="border-t border-border-subtle my-6" />
+
+                    {/* Amount & Currency */}
+                    <div className="space-y-2">
+                      <label className="block font-label-caps text-label-caps text-on-surface uppercase tracking-wider" htmlFor="amount">
+                        Transfer Amount
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="relative flex-1">
+                          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">payments</span>
+                          <input
+                            id="amount"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            required
+                            className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border-border-subtle rounded border focus:ring-2 focus:ring-primary focus:border-primary font-body-lg text-body-lg text-on-surface placeholder:text-slate-500 transition-colors"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="sm:w-36">
+                          <select
+                            id="currency"
+                            value={currency}
+                            onChange={(e) => setCurrency(e.target.value)}
+                            className="w-full px-4 py-2 bg-surface-container-lowest border-border-subtle rounded border focus:ring-2 focus:ring-primary focus:border-primary font-body-md text-body-md text-on-surface appearance-none transition-colors"
+                          >
+                            <option value="TRY">TRY (₺)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-6 flex gap-4 justify-end border-t border-border-subtle mt-8">
+                      <button
+                        type="button"
+                        onClick={() => navigate("/overview")}
+                        className="px-6 py-2 bg-surface-container-lowest border border-border-subtle text-secondary font-body-md font-medium rounded hover:bg-surface-container transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-6 py-2 bg-primary-container text-on-primary font-body-md font-medium rounded hover:bg-primary transition-colors focus:ring-2 focus:ring-primary-container btn-press flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">send</span>
+                        Initiate Transfer
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div className="mt-6 text-center">
+                  <p className="font-code-sm text-code-sm text-slate-500 flex items-center justify-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">api</span>
+                    POST /api/v1/transfers (Idempotency Enforced)
+                  </p>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SCREEN 1: TRANSFER INITIATED CONFIRMATION ---
+    function TransferInitiatedScreen() {
+      const location = useLocation();
+      const navigate = useNavigate();
+      const params = new URLSearchParams(location.search);
+      const transferId = params.get("id") || "TRX-8924-F91A";
+      const [copied, setCopied] = useState(false);
+
+      const handleCopy = () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      };
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="Transfer Status" />
+            <main className="flex-1 flex items-center justify-center p-margin-page">
+              <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-8 max-w-[480px] w-full flex flex-col items-center text-center shadow-lg">
+                <div className="mb-5 w-20 h-20 rounded-full bg-success/10 flex items-center justify-center relative">
+                  <div className="absolute inset-0 rounded-full border border-success/30 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+                  <span className="material-symbols-outlined text-[48px] text-success" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                </div>
+
+                <h1 className="font-headline-md text-headline-md text-on-surface mb-2">Transfer Initiated Successfully</h1>
+                <p className="font-body-md text-body-md text-slate-500 mb-8 max-w-sm">The transfer request has been received and is being processed by the clearing network.</p>
+
+                <div className="w-full bg-surface-container-low border border-border-subtle rounded-lg p-5 mb-8 flex flex-col gap-4 text-left">
+                  <h2 className="font-label-caps text-label-caps text-slate-500 uppercase tracking-wider mb-1 border-b border-outline-variant/30 pb-2">Transaction Summary</h2>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="font-body-sm text-body-sm text-slate-500">Status</span>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-warning/30 bg-warning/5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse"></span>
+                      <span className="font-label-caps text-[10px] uppercase text-warning font-bold">Pending</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="font-body-sm text-body-sm text-slate-500">Transfer ID</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-code-sm text-code-sm text-on-surface font-semibold">{transferId}</span>
+                      <button
+                        onClick={handleCopy}
+                        className="text-slate-400 hover:text-primary transition-colors flex items-center justify-center p-1" 
+                        title="Copy ID"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">{copied ? "check" : "content_copy"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex w-full gap-3">
+                  <button 
+                    onClick={() => navigate("/transfers/success-demo")} 
+                    className="flex-1 py-2.5 px-4 border border-border-subtle bg-surface-container-lowest text-secondary rounded font-body-sm hover:bg-surface-container transition-colors btn-press"
+                  >
+                    View Receipt
+                  </button>
+                  <button 
+                    onClick={() => navigate("/overview")} 
+                    className="flex-1 py-2.5 px-4 bg-primary-container text-on-primary rounded font-body-sm hover:bg-primary transition-colors shadow-sm btn-press"
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SCREEN 4: SUCCESS TRANSFER DETAILS (TransactMotor) ---
+    function SuccessTransferDetailsScreen() {
+      const navigate = useNavigate();
+      const [copiedPayload, setCopiedPayload] = useState(false);
+
+      const handleCopyPayload = () => {
+        setCopiedPayload(true);
+        setTimeout(() => setCopiedPayload(false), 2000);
+      };
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="Transfer Details - TRN-2023-98765432" />
+            <main className="p-gutter flex-1 overflow-y-auto w-full max-w-container-max mx-auto">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                  <h2 className="font-headline-md text-headline-md text-on-surface mb-1">Transfer Details</h2>
+                  <div className="flex items-center gap-3 font-code-sm text-code-sm text-slate-500">
+                    <span>ID: TRN-2023-98765432</span>
+                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                    <span>Oct 24, 2023 14:32:01 UTC</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="font-label-caps text-label-caps text-slate-500 uppercase tracking-wider mb-1">Amount</div>
+                    <div className="font-headline-sm text-headline-sm font-semibold text-on-surface">500.00 TRY</div>
+                  </div>
+                  <div className="h-10 w-px bg-border-subtle hidden sm:block"></div>
+                  <div className="bg-success/10 border border-success/20 text-success px-3 py-1 rounded font-label-caps text-label-caps flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    COMPLETED
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-6">
+                {/* Left Column: Saga Timeline */}
+                <div className="col-span-12 lg:col-span-8 space-y-6">
+                  <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+                      <h3 className="font-label-caps text-label-caps text-slate-500 uppercase tracking-wider">Saga Execution Timeline</h3>
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1.5 text-body-sm font-body-sm bg-primary-container text-on-primary rounded text-sm font-medium">Success Flow</button>
+                        <button 
+                          onClick={() => navigate("/transfer/failure-compensation")}
+                          className="px-3 py-1.5 text-body-sm font-body-sm bg-surface text-secondary border border-border-subtle rounded text-sm hover:bg-surface-container transition-colors"
+                        >
+                          Failure Simulation
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative pl-6 border-l-2 border-border-subtle space-y-8 pb-4 ml-3">
+                      {/* Step 1 */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full border-2 border-border-subtle">
+                          <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-label-caps text-label-caps font-bold text-on-surface">PENDING</span>
+                            <span className="text-xs text-slate-500 font-code-sm">14:32:01.045</span>
+                          </div>
+                          <p className="font-body-sm text-body-sm text-slate-500">Transfer initiated by system.</p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full border-2 border-border-subtle">
+                          <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-label-caps text-label-caps font-bold text-on-surface">DEBIT_COMPLETED</span>
+                            <span className="text-xs text-slate-500 font-code-sm">14:32:02.112</span>
+                          </div>
+                          <p className="font-body-sm text-body-sm text-slate-500">Funds successfully debited from Source Bank.</p>
+                          <div className="mt-2 bg-surface-container-low border border-border-subtle rounded p-2 inline-flex items-center gap-2 font-code-sm text-code-sm text-slate-600">
+                            <span className="material-symbols-outlined text-[14px] text-slate-400">link</span>
+                            CorrID: a8f9c2-4b7d-11ee-be56-0242ac120002
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full border-2 border-border-subtle">
+                          <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-label-caps text-label-caps font-bold text-on-surface">CREDIT_REQUESTED</span>
+                            <span className="text-xs text-slate-500 font-code-sm">14:32:03.450</span>
+                          </div>
+                          <p className="font-body-sm text-body-sm text-slate-500">Credit request sent to Destination Bank.</p>
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="relative">
+                        <div className="absolute -left-[33px] bg-surface-container-lowest p-0.5 rounded-full">
+                          <span className="material-symbols-outlined text-[20px] text-success" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-label-caps text-label-caps font-bold text-success">COMPLETED</span>
+                            <span className="text-xs text-slate-500 font-code-sm">14:32:05.890</span>
+                          </div>
+                          <p className="font-body-sm text-body-sm text-slate-500">Transfer successfully finalized.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alternative Path Section */}
+                  <div 
+                    onClick={() => navigate("/transfer/failure-compensation")}
+                    className="bg-surface-container-lowest border border-border-subtle rounded-lg p-6 hover:border-primary transition-all cursor-pointer group"
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-label-caps text-label-caps text-slate-500 group-hover:text-primary transition-colors uppercase tracking-wider flex items-center gap-2">
+                        <span>Failure & Compensation Flow (Click to Inspect)</span>
+                        <span className="material-symbols-outlined text-sm">open_in_new</span>
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 font-code-sm text-[11px]">
+                      <span className="px-2 py-1 bg-surface-container rounded border border-border-subtle text-slate-600">PENDING</span>
+                      <span className="material-symbols-outlined text-[14px] text-slate-400">arrow_forward</span>
+                      <span className="px-2 py-1 bg-surface-container rounded border border-border-subtle text-slate-600">DEBIT_COMPLETED</span>
+                      <span className="material-symbols-outlined text-[14px] text-slate-400">arrow_forward</span>
+                      <span className="px-2 py-1 bg-error/10 text-error rounded border border-error/20 font-bold">CREDIT_FAILED</span>
+                      <span className="material-symbols-outlined text-[14px] text-warning">undo</span>
+                      <span className="px-2 py-1 bg-warning/10 text-warning rounded border border-warning/20">COMPENSATING</span>
+                      <span className="material-symbols-outlined text-[14px] text-slate-400">arrow_forward</span>
+                      <span className="px-2 py-1 bg-surface-container rounded border border-border-subtle text-slate-600">COMPENSATED</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Details & JSON */}
+                <div className="col-span-12 lg:col-span-4 space-y-6">
+                  <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5">
+                    <h3 className="font-label-caps text-label-caps text-slate-500 uppercase tracking-wider mb-4 border-b border-border-subtle pb-2">Participants</h3>
+                    <div className="mb-4">
+                      <div className="text-xs text-slate-500 mb-1">Source Account</div>
+                      <div className="font-body-md text-body-md text-on-surface font-medium flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px] text-primary">account_balance_wallet</span>
+                        TR12 3456 7890 1234 5678 90
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1 pl-6">Bank A (Retail)</div>
+                    </div>
+
+                    <div className="flex justify-center my-2">
+                      <span className="material-symbols-outlined text-slate-300">arrow_downward</span>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-slate-500 mb-1">Destination Account</div>
+                      <div className="font-body-md text-body-md text-on-surface font-medium flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px] text-secondary">account_balance</span>
+                        TR98 7654 3210 9876 5432 10
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1 pl-6">Bank B (Commercial)</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5">
+                    <div className="flex justify-between items-center mb-4 border-b border-border-subtle pb-2">
+                      <h3 className="font-label-caps text-label-caps text-slate-500 uppercase tracking-wider">Payload Data</h3>
+                      <button 
+                        onClick={handleCopyPayload} 
+                        className="text-primary hover:text-primary-fixed-dim transition-colors text-xs flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                        {copiedPayload ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                    <div className="bg-slate-900 text-slate-300 rounded p-3 font-code-sm text-[11px] overflow-x-auto">
+                      <pre><code>{`{
+  "transferId": "TRN-2023-98765432",
+  "amount": 500.00,
+  "currency": "TRY",
+  "sourceBankCode": "BNKA",
+  "destBankCode": "BNKB",
+  "priority": "HIGH",
+  "metadata": {
+    "channel": "API_GATEWAY",
+    "region": "EU-CENTRAL"
+  }
+}`}</code></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SCREEN 3: FAILED TRANSFER & COMPENSATION FLOW ---
+    function FailureCompensationScreen() {
+      const navigate = useNavigate();
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="TransactMotor - Incident Analysis" />
+            <main className="p-6 md:p-8 max-w-container-max mx-auto min-h-screen flex flex-col gap-6 w-full">
+              {/* Breadcrumb */}
+              <div className="flex items-center gap-2 font-body-sm text-body-sm text-slate-500">
+                <Link to="/overview" className="hover:text-primary transition-colors">Transfers</Link>
+                <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>chevron_right</span>
+                <span className="text-on-surface font-medium">TRX-8924-F</span>
+              </div>
+
+              {/* Header Section */}
+              <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+                <div>
+                  <h2 className="font-headline-md text-headline-md text-on-surface mb-1 flex items-center gap-3">
+                    Transfer Details
+                    <span className="px-2 py-0.5 rounded-full bg-info/10 text-info border border-info/20 font-label-caps text-label-caps flex items-center gap-1">
+                      <span className="material-symbols-outlined" style={{ fontSize: "12px", fontVariationSettings: "'FILL' 1" }}>undo</span>
+                      COMPENSATED
+                    </span>
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 font-code-sm text-code-sm text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>tag</span>
+                      TRX-8924-F
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>calendar_today</span>
+                      Oct 24, 2023 - 14:32:05 UTC
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>account_balance_wallet</span>
+                      Source: ACCT-4421
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>account_balance</span>
+                      Target: ACCT-9983
+                    </div>
+                  </div>
+                </div>
+                <div className="text-left md:text-right">
+                  <div className="font-body-sm text-body-sm text-slate-500 mb-1">Transfer Amount</div>
+                  <div className="font-headline-lg text-headline-lg text-on-surface">$24,500.00</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Timeline Column */}
+                <div className="lg:col-span-2 flex flex-col gap-6">
+                  <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-6 shadow-sm">
+                    <h3 className="font-label-caps text-label-caps text-slate-500 mb-6 tracking-wider uppercase">Execution Flow & Compensation</h3>
+                    <div className="relative pl-6 border-l-2 border-surface-variant ml-3 space-y-8">
+                      {/* Step 1: PENDING */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full">
+                          <div className="w-4 h-4 bg-success rounded-full flex items-center justify-center">
+                            <span className="material-symbols-outlined text-white" style={{ fontSize: "10px", fontVariationSettings: "'FILL' 1" }}>check</span>
+                          </div>
+                        </div>
+                        <div className="font-body-md text-body-md">
+                          <div className="font-medium text-on-surface">PENDING</div>
+                          <div className="text-slate-500 font-body-sm text-body-sm mt-1">Saga execution initiated. Locks acquired.</div>
+                          <div className="font-code-sm text-code-sm text-slate-400 mt-2">14:32:05.110 UTC</div>
+                        </div>
+                      </div>
+
+                      {/* Step 2: DEBIT_COMPLETED */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full">
+                          <div className="w-4 h-4 bg-success rounded-full flex items-center justify-center">
+                            <span className="material-symbols-outlined text-white" style={{ fontSize: "10px", fontVariationSettings: "'FILL' 1" }}>check</span>
+                          </div>
+                        </div>
+                        <div className="font-body-md text-body-md">
+                          <div className="font-medium text-on-surface">DEBIT_COMPLETED</div>
+                          <div className="text-slate-500 font-body-sm text-body-sm mt-1">Funds successfully held in Source Bank.</div>
+                          <div className="font-code-sm text-code-sm text-slate-400 mt-2">14:32:06.402 UTC</div>
+                        </div>
+                      </div>
+
+                      {/* Step 3: CREDIT_FAILED */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full">
+                          <div className="w-4 h-4 bg-error rounded-full flex items-center justify-center shadow-[0_0_0_4px_rgba(239,68,68,0.1)]">
+                            <span className="material-symbols-outlined text-white" style={{ fontSize: "10px", fontVariationSettings: "'FILL' 1" }}>close</span>
+                          </div>
+                        </div>
+                        <div className="font-body-md text-body-md">
+                          <div className="font-medium text-error flex items-center gap-2">
+                            CREDIT_FAILED
+                            <span className="px-1.5 py-0.5 bg-error/10 text-error rounded text-[10px] font-bold uppercase tracking-wider">Failure Point</span>
+                          </div>
+                          <div className="bg-error-container/30 border border-error/20 rounded-md p-3 mt-2">
+                            <div className="text-on-surface font-body-sm text-body-sm">Destination bank rejected: Insufficient Funds at target or account frozen.</div>
+                            <div className="font-code-sm text-code-sm text-error mt-2 bg-surface-container-lowest p-2 rounded border border-error/10">ERR_CODE: TRG_REJ_402</div>
+                          </div>
+                          <div className="font-code-sm text-code-sm text-slate-400 mt-2">14:32:08.891 UTC</div>
+                        </div>
+                      </div>
+
+                      {/* Step 4: COMPENSATING */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full">
+                          <div className="w-4 h-4 bg-info rounded-full flex items-center justify-center shadow-[0_0_0_4px_rgba(59,130,246,0.1)]">
+                            <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: "10px" }}>autorenew</span>
+                          </div>
+                        </div>
+                        <div className="font-body-md text-body-md">
+                          <div className="font-medium text-info">COMPENSATING</div>
+                          <div className="text-slate-500 font-body-sm text-body-sm mt-1">Initiating automatic refund to source account (Compensating Transaction).</div>
+                          <div className="font-code-sm text-code-sm text-slate-400 mt-2">14:32:09.105 UTC</div>
+                        </div>
+                      </div>
+
+                      {/* Step 5: COMPENSATED */}
+                      <div className="relative">
+                        <div className="absolute -left-[31px] bg-surface-container-lowest p-1 rounded-full">
+                          <div className="w-4 h-4 bg-info rounded-full flex items-center justify-center">
+                            <span className="material-symbols-outlined text-white" style={{ fontSize: "10px", fontVariationSettings: "'FILL' 1" }}>undo</span>
+                          </div>
+                        </div>
+                        <div className="font-body-md text-body-md">
+                          <div className="font-medium text-on-surface">COMPENSATED</div>
+                          <div className="text-slate-500 font-body-sm text-body-sm mt-1">Debit reversed. Funds returned to Source Bank. Ledger balanced.</div>
+                          <div className="font-code-sm text-code-sm text-slate-400 mt-2">14:32:11.550 UTC</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Context Column */}
+                <div className="flex flex-col gap-6">
+                  {/* Compensation Summary Card */}
+                  <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5 shadow-sm">
+                    <h3 className="font-label-caps text-label-caps text-slate-500 mb-4 tracking-wider uppercase flex items-center gap-2">
+                      <span className="material-symbols-outlined text-info" style={{ fontSize: "16px" }}>health_and_safety</span>
+                      System Intervention
+                    </h3>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mb-4">
+                      Saga pattern triggered a compensating transaction due to a downstream failure at the target institution.
+                    </p>
+                    <div className="bg-surface-container-low rounded p-3 mb-4">
+                      <div className="font-body-sm text-body-sm flex justify-between mb-1">
+                        <span className="text-slate-500">Original Amount:</span>
+                        <span className="text-on-surface font-medium">$24,500.00</span>
+                      </div>
+                      <div className="font-body-sm text-body-sm flex justify-between mb-1">
+                        <span className="text-slate-500">Refunded Amount:</span>
+                        <span className="text-info font-medium">+$24,500.00</span>
+                      </div>
+                      <div className="h-px bg-border-subtle w-full my-2"></div>
+                      <div className="font-body-sm text-body-sm flex justify-between">
+                        <span className="text-slate-500">Net Impact:</span>
+                        <span className="text-on-surface font-bold">$0.00</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => alert("Audit log SG-992-881-A cryptographic proof verified.")}
+                      className="w-full bg-white border border-border-subtle text-secondary font-body-md py-2 rounded flex items-center justify-center gap-2 hover:bg-surface-container-low transition-colors shadow-sm"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>receipt_long</span>
+                      View Audit Log
+                    </button>
+                  </div>
+
+                  {/* Technical Details Card */}
+                  <div className="bg-surface-container-lowest border border-border-subtle rounded-lg p-5 shadow-sm">
+                    <h3 className="font-label-caps text-label-caps text-slate-500 mb-4 tracking-wider uppercase">Technical Metadata</h3>
+                    <div className="space-y-3 font-code-sm text-code-sm">
+                      <div>
+                        <span className="text-slate-400 block mb-0.5">Saga ID:</span>
+                        <span className="text-on-surface bg-surface-container-low px-1.5 py-0.5 rounded">SG-992-881-A</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block mb-0.5">Compensating Tx:</span>
+                        <span className="text-on-surface bg-surface-container-low px-1.5 py-0.5 rounded">CTX-REV-441</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block mb-0.5">Node Executor:</span>
+                        <span className="text-on-surface bg-surface-container-low px-1.5 py-0.5 rounded">node-us-east-4a</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SCREEN 5: RECONCILIATION DASHBOARD ---
+    function ReconciliationScreen() {
+      const navigate = useNavigate();
+      const [filterText, setFilterText] = useState("");
+      const [isRunning, setIsRunning] = useState(false);
+      const [runNotification, setRunNotification] = useState(false);
+
+      const discrepancies = [
+        {
+          id: "550e8400-e29b-41d4-a716",
+          type: "MISSING_CREDIT",
+          bankA: "45,000.00",
+          bankB: "-",
+          date: "2026-08-28 02:45:12",
+          badgeClass: "bg-error/10 text-error border-error/20"
+        },
+        {
+          id: "a12b3c4d-5e6f-7g8h-9i0j",
+          type: "AMOUNT_MISMATCH",
+          bankA: "12,500.50",
+          bankB: "12,500.00",
+          date: "2026-08-28 02:45:12",
+          badgeClass: "bg-warning/10 text-warning border-warning/20"
+        },
+        {
+          id: "9f8e7d6c-5b4a-3928-1701",
+          type: "MISSING_DEBIT",
+          bankA: "-",
+          bankB: "8,200.00",
+          date: "2026-08-28 02:45:15",
+          badgeClass: "bg-error/10 text-error border-error/20"
+        },
+        {
+          id: "b2c3d4e5-f6g7-h8i9-j0k1",
+          type: "STATUS_MISMATCH",
+          bankA: "1,000.00",
+          bankB: "1,000.00",
+          date: "2026-08-28 02:45:18",
+          badgeClass: "bg-warning/10 text-warning border-warning/20"
+        }
+      ];
+
+      const filtered = discrepancies.filter(d => 
+        d.id.toLowerCase().includes(filterText.toLowerCase()) || 
+        d.type.toLowerCase().includes(filterText.toLowerCase())
+      );
+
+      const handleRunRecon = () => {
+        setIsRunning(true);
+        setTimeout(() => {
+          setIsRunning(false);
+          setRunNotification(true);
+          setTimeout(() => setRunNotification(false), 3000);
+        }, 1200);
+      };
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar onRunReconciliation={handleRunRecon} />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="Reconciliation Dashboard" />
+            <main className="p-margin-page min-h-[calc(100vh-64px)] bg-surface flex flex-col gap-6">
+              {/* Header Section */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div>
+                  <h2 className="font-headline-lg text-headline-lg text-on-surface">Reconciliation Dashboard</h2>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Overview of latest system reconciliations and detected discrepancies.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-on-surface-variant font-code-sm text-code-sm bg-surface-container px-3 py-2 border border-border-subtle rounded">
+                    <span className="material-symbols-outlined text-[16px]">schedule</span>
+                    Last Run: 2026-08-28 03:00 UTC
+                  </div>
+                  <button
+                    onClick={handleRunRecon}
+                    disabled={isRunning}
+                    className="bg-primary-container text-on-primary font-body-sm py-2 px-4 rounded flex items-center gap-2 hover:bg-primary transition-colors btn-press shadow-sm"
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${isRunning ? "animate-spin" : ""}`}>
+                      {isRunning ? "refresh" : "play_arrow"}
+                    </span>
+                    {isRunning ? "Running Batch..." : "Run Job Now"}
+                  </button>
+                </div>
+              </div>
+
+              {runNotification && (
+                <div className="p-3 bg-success/10 border border-success/30 rounded text-success text-body-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">check_circle</span>
+                  Reconciliation job executed successfully across Bank A and Bank B ledgers. 0 unlogged sync errors.
+                </div>
+              )}
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 flex flex-col gap-2 relative overflow-hidden group hover:border-slate-300 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Total Discrepancies</span>
+                    <div className="w-8 h-8 rounded bg-error/10 text-error flex items-center justify-center border border-error/20">
+                      <span className="material-symbols-outlined text-[18px]">warning</span>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="font-headline-lg text-headline-lg text-on-surface">12</span>
+                    <span className="font-body-sm text-body-sm text-error flex items-center">
+                      <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +3 since last run
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-error/20 group-hover:bg-error transition-colors"></div>
+                </div>
+
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 flex flex-col gap-2 relative overflow-hidden group hover:border-slate-300 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Volume at Risk</span>
+                    <div className="w-8 h-8 rounded bg-warning/10 text-warning flex items-center justify-center border border-warning/20">
+                      <span className="material-symbols-outlined text-[18px]">attach_money</span>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="font-headline-lg text-headline-lg text-on-surface font-code-sm tracking-tight">
+                      145,000.00 <span className="text-[16px] text-on-surface-variant">TRY</span>
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-warning/20 group-hover:bg-warning transition-colors"></div>
+                </div>
+
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 flex flex-col gap-2 relative overflow-hidden group hover:border-slate-300 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Match Rate</span>
+                    <div className="w-8 h-8 rounded bg-success/10 text-success flex items-center justify-center border border-success/20">
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="font-headline-lg text-headline-lg text-on-surface">99.98%</span>
+                    <span className="font-body-sm text-body-sm text-on-surface-variant">of 45,219 records</span>
+                  </div>
+                  <div className="w-full bg-surface-container h-1.5 mt-auto rounded-full overflow-hidden">
+                    <div className="bg-success h-full w-[99.98%]"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Data Table */}
+              <div className="bg-surface-container-lowest border border-border-subtle rounded-xl flex flex-col overflow-hidden">
+                <div className="px-6 py-5 border-b border-border-subtle flex flex-col sm:flex-row justify-between items-center gap-4 bg-surface-container/30">
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Reconciliation Discrepancies - Latest Run</h3>
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-64">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">filter_list</span>
+                      <input
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                        className="w-full pl-9 pr-3 py-1.5 border border-border-subtle bg-surface-container-lowest rounded text-body-sm focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none placeholder-slate-500"
+                        placeholder="Filter UUID or Type..."
+                        type="text"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => alert("Downloading CSV reconciliation audit snapshot...")}
+                      className="flex items-center gap-2 px-3 py-1.5 border border-border-subtle rounded bg-surface-container-lowest text-on-surface font-body-sm hover:bg-surface-container transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">download</span>
+                      Export
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-surface-container/50 border-b border-border-subtle">
+                        <th className="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Correlation ID</th>
+                        <th className="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Type</th>
+                        <th className="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold text-right">Amount (Bank A)</th>
+                        <th className="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold text-right">Amount (Bank B)</th>
+                        <th className="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold">Detected Date</th>
+                        <th className="px-6 py-3 font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-semibold text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-body-sm text-body-sm divide-y divide-border-subtle">
+                      {filtered.map((item, index) => (
+                        <tr key={index} className="hover:bg-surface-container-lowest/50 transition-colors group">
+                          <td className="px-6 py-3 font-code-sm text-on-surface">{item.id}</td>
+                          <td className="px-6 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${item.badgeClass}`}>
+                              {item.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3 text-right font-code-sm text-on-surface">{item.bankA}</td>
+                          <td className="px-6 py-3 text-right font-code-sm text-error font-medium">{item.bankB}</td>
+                          <td className="px-6 py-3 text-on-surface-variant">{item.date}</td>
+                          <td className="px-6 py-3 text-center">
+                            <button
+                              onClick={() => navigate("/transfer/failure-compensation")}
+                              className="w-7 h-7 rounded border border-border-subtle flex items-center justify-center mx-auto text-secondary hover:bg-surface-container transition-colors btn-press" 
+                              title="View Details"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">visibility</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-3 border-t border-border-subtle bg-surface-container/30 flex justify-between items-center">
+                  <span className="font-body-sm text-body-sm text-on-surface-variant">Showing {filtered.length} of 12 discrepancies</span>
+                  <div className="flex gap-1">
+                    <button className="px-2 py-1 border border-border-subtle rounded text-on-surface-variant opacity-50 cursor-not-allowed">Prev</button>
+                    <button className="px-2 py-1 border border-border-subtle rounded text-on-surface bg-surface-container font-semibold">1</button>
+                    <button className="px-2 py-1 border border-border-subtle rounded text-on-surface-variant hover:bg-surface-container">2</button>
+                    <button className="px-2 py-1 border border-border-subtle rounded text-on-surface-variant hover:bg-surface-container">3</button>
+                    <button className="px-2 py-1 border border-border-subtle rounded text-on-surface-variant hover:bg-surface-container">Next</button>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- SCREEN 6: ANOMALY DETECTION REPORT ---
+    function AnomalyReportScreen() {
+      const navigate = useNavigate();
+      const [selectedRow, setSelectedRow] = useState(null);
+
+      const rows = [
+        { id: "TRX-8924-A1", amount: "45,000.00", score: "0.92", high: true, tags: ["Unusual Amount", "Velocity Spike"] },
+        { id: "TRX-8924-B4", amount: "120,500.00", score: "0.88", high: true, tags: ["High Latency", "Geo-IP Mismatch"] },
+        { id: "TRX-8924-C9", amount: "12,400.00", score: "0.65", high: false, tags: ["Frequent Retries"] },
+        { id: "TRX-8924-D2", amount: "8,950.00", score: "0.42", high: false, tags: ["Time-of-day Anomaly"] },
+        { id: "TRX-8924-E7", amount: "1,200.00", score: "0.12", safe: true, tags: ["No significant anomalies"] }
+      ];
+
+      return (
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+            <Header title="ML Anomaly Engine" />
+            <main className="flex-1 overflow-y-auto p-gutter lg:p-margin-page bg-background">
+              <div className="max-w-container-max mx-auto flex flex-col gap-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 mb-2">
+                  <div>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface">Anomaly Detection Report</h1>
+                    <p className="font-body-md text-body-md text-secondary mt-1">Real-time isolation forest ML scoring for recent transfer batches.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => alert("Exporting ML feature vectors and scored isolates to CSV...")}
+                      className="px-3 py-1.5 bg-surface border border-border-subtle rounded text-secondary font-body-sm flex items-center gap-2 hover:bg-surface-container-low transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">download</span> Export CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bento Grid: Top Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Histogram Card */}
+                  <div className="lg:col-span-8 bg-surface-container-lowest border border-border-subtle rounded-xl p-5 flex flex-col relative overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="font-label-caps text-label-caps text-secondary uppercase tracking-wider">Score Distribution</h2>
+                      <span className="font-code-sm text-code-sm text-slate-500 bg-surface px-2 py-1 rounded">Batch: B-8924-X</span>
+                    </div>
+
+                    <div className="flex-1 min-h-[200px] flex items-end gap-1 px-2 pt-6 relative border-b border-border-subtle pb-1">
+                      <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-slate-500 font-code-sm pb-8">
+                        <span>1.2k</span>
+                        <span>800</span>
+                        <span>400</span>
+                        <span>0</span>
+                      </div>
+
+                      {/* Bars */}
+                      <div className="flex-1 flex items-end justify-between h-full pl-8 pb-7">
+                        <div className="w-full bg-surface-variant rounded-t-sm h-[85%] mx-px hover:bg-slate-300 transition-colors" title="Score: 0.0-0.1"></div>
+                        <div className="w-full bg-surface-variant rounded-t-sm h-[60%] mx-px hover:bg-slate-300 transition-colors" title="Score: 0.1-0.2"></div>
+                        <div className="w-full bg-surface-variant rounded-t-sm h-[45%] mx-px hover:bg-slate-300 transition-colors" title="Score: 0.2-0.3"></div>
+                        <div className="w-full bg-[#fcd34d] opacity-70 rounded-t-sm h-[30%] mx-px hover:opacity-100 transition-opacity" title="Score: 0.3-0.4"></div>
+                        <div className="w-full bg-[#fcd34d] opacity-70 rounded-t-sm h-[25%] mx-px hover:opacity-100 transition-opacity" title="Score: 0.4-0.5"></div>
+                        <div className="w-full bg-[#fcd34d] opacity-70 rounded-t-sm h-[15%] mx-px hover:opacity-100 transition-opacity" title="Score: 0.5-0.6"></div>
+                        <div className="w-full bg-[#fcd34d] opacity-70 rounded-t-sm h-[10%] mx-px hover:opacity-100 transition-opacity" title="Score: 0.6-0.7"></div>
+                        <div className="w-full bg-error opacity-80 rounded-t-sm h-[8%] mx-px shadow-[0_0_8px_rgba(239,68,68,0.4)]" title="Score: 0.7-0.8"></div>
+                        <div className="w-full bg-error rounded-t-sm h-[12%] mx-px shadow-[0_0_12px_rgba(239,68,68,0.6)]" title="Score: 0.8-0.9"></div>
+                        <div className="w-full bg-error rounded-t-sm h-[5%] mx-px shadow-[0_0_12px_rgba(239,68,68,0.6)]" title="Score: 0.9-1.0"></div>
+                      </div>
+
+                      <div className="absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-slate-500 font-code-sm pt-2">
+                        <span>0.0</span>
+                        <span>0.3</span>
+                        <span>0.7</span>
+                        <span className="text-error font-bold">1.0</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Stats */}
+                  <div className="lg:col-span-4 flex flex-col gap-4">
+                    <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex items-center justify-between">
+                      <div>
+                        <h3 className="font-label-caps text-label-caps text-secondary uppercase tracking-wider mb-1">Avg Anomaly Score</h3>
+                        <div className="font-headline-lg text-headline-lg text-on-surface">0.14</div>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success">
+                        <span className="material-symbols-outlined">trending_down</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-surface-container-lowest border border-error/30 rounded-xl p-5 shadow-[0_1px_2px_rgba(239,68,68,0.05)] flex items-center justify-between relative overflow-hidden">
+                      <div className="absolute right-0 top-0 w-24 h-24 bg-error/5 rounded-bl-full -z-10"></div>
+                      <div>
+                        <h3 className="font-label-caps text-label-caps text-error uppercase tracking-wider mb-1">High Risk Detected</h3>
+                        <div className="font-headline-lg text-headline-lg text-error">
+                          24 <span className="font-body-sm text-body-sm text-secondary ml-1 font-normal">transactions</span>
+                        </div>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-error">
+                        <span className="material-symbols-outlined">warning</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-surface-container-lowest border border-border-subtle rounded-xl p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col justify-center">
+                      <h3 className="font-label-caps text-label-caps text-secondary uppercase tracking-wider mb-2">Model Configuration</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-secondary text-sm">memory</span>
+                        <span className="font-code-sm text-code-sm text-on-surface bg-surface px-2 py-1 rounded border border-border-subtle">v1-isolation-forest</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Table */}
+                <div className="bg-surface-container-lowest border border-border-subtle rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
+                  <div className="p-5 border-b border-border-subtle flex justify-between items-center bg-surface/50">
+                    <h2 className="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-error">policy</span>
+                      High Risk Transactions
+                    </h2>
+                    <div className="flex gap-2">
+                      <button className="p-1.5 border border-border-subtle rounded text-secondary hover:bg-surface-container-low">
+                        <span className="material-symbols-outlined text-[18px]">filter_list</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border-subtle bg-surface/30">
+                          <th className="px-5 py-3 font-label-caps text-label-caps text-secondary uppercase tracking-wider w-40">Transfer ID</th>
+                          <th className="px-5 py-3 font-label-caps text-label-caps text-secondary uppercase tracking-wider text-right w-32">Amount (TRY)</th>
+                          <th className="px-5 py-3 font-label-caps text-label-caps text-secondary uppercase tracking-wider w-32 text-center">Score</th>
+                          <th className="px-5 py-3 font-label-caps text-label-caps text-secondary uppercase tracking-wider">Detected Feature Reasons</th>
+                          <th className="px-5 py-3 font-label-caps text-label-caps text-secondary uppercase tracking-wider text-right w-32">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-code-sm text-code-sm text-on-surface">
+                        {rows.map((row, idx) => (
+                          <tr 
+                            key={idx} 
+                            className={`border-b border-border-subtle hover:bg-surface-container-lowest transition-colors ${row.high ? "bg-error/[0.02]" : ""} ${row.safe ? "opacity-60" : ""}`}
+                          >
+                            <td className="px-5 py-4 font-medium">{row.id}</td>
+                            <td className="px-5 py-4 text-right">{row.amount}</td>
+                            <td className="px-5 py-4 text-center">
+                              {row.high ? (
+                                <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-error text-on-error font-bold w-12 shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+                                  {row.score}
+                                </span>
+                              ) : row.safe ? (
+                                <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-success/20 text-success font-bold w-12">
+                                  {row.score}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-warning text-slate-900 font-bold w-12">
+                                  {row.score}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex gap-2 flex-wrap">
+                                {row.tags.map((tag, tIdx) => (
+                                  <span
+                                    key={tIdx}
+                                    className={`px-2 py-0.5 rounded text-[11px] border ${
+                                      row.high ? "bg-surface border-error/20 text-error" : "bg-surface border-border-subtle text-secondary"
+                                    }`}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              {row.safe ? (
+                                <button disabled className="px-3 py-1 bg-surface border border-border-subtle rounded text-secondary font-body-sm font-medium opacity-50 cursor-not-allowed">
+                                  Investigate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => navigate("/transfer/failure-compensation")}
+                                  className="px-3 py-1 bg-surface border border-border-subtle rounded text-primary hover:border-primary hover:bg-primary-fixed/20 transition-all font-body-sm font-medium btn-press"
+                                >
+                                  Investigate
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="p-4 border-t border-border-subtle flex justify-between items-center bg-surface/30">
+                    <span className="font-body-sm text-body-sm text-secondary">Showing top 5 of 24 anomalous transactions</span>
+                    <div className="flex gap-1">
+                      <button className="w-8 h-8 flex items-center justify-center border border-border-subtle rounded bg-surface-container-lowest text-slate-400 cursor-not-allowed">
+                        <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      </button>
+                      <button className="w-8 h-8 flex items-center justify-center border border-primary rounded bg-primary-fixed text-primary font-code-sm text-code-sm font-bold">1</button>
+                      <button className="w-8 h-8 flex items-center justify-center border border-border-subtle rounded bg-surface-container-lowest hover:bg-surface text-secondary font-code-sm text-code-sm">2</button>
+                      <button className="w-8 h-8 flex items-center justify-center border border-border-subtle rounded bg-surface-container-lowest hover:bg-surface text-secondary">
+                        <span className="material-symbols-outlined text-sm">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    // --- MAIN APP ROUTER CONTAINER ---
+    function App() {
+      return (
+        <MemoryRouter initialEntries={["/overview"]}>
+          <Routes>
+            {/* Screen 7: Executive System Overview */}
+            <Route path="/" element={<ExecutiveOverviewScreen />} />
+            <Route path="/overview" element={<ExecutiveOverviewScreen />} />
+
+            {/* Screen 2: New Money Transfer Form */}
+            <Route path="/transfer/new" element={<NewTransferScreen />} />
+
+            {/* Screen 1: Transfer Initiated Confirmation */}
+            <Route path="/transfer/initiated" element={<TransferInitiatedScreen />} />
+
+            {/* Screen 4: Completed Transfer Details & Saga Flow */}
+            <Route path="/transfers/success-demo" element={<SuccessTransferDetailsScreen />} />
+
+            {/* Screen 3: Failed Transfer & Compensation Saga */}
+            <Route path="/transfer/failure-compensation" element={<FailureCompensationScreen />} />
+
+            {/* Screen 5: Reconciliation Dashboard */}
+            <Route path="/reconciliation" element={<ReconciliationScreen />} />
+
+            {/* Screen 6: Anomaly Detection Report */}
+            <Route path="/anomalies" element={<AnomalyReportScreen />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<ExecutiveOverviewScreen />} />
+          </Routes>
+        </MemoryRouter>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = createRoot(container);
+    root.render(<App />);
+  </script>
+</body>
+</html>

@@ -22,7 +22,8 @@
 ![scikit-learn](https://img.shields.io/badge/scikit_learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-[Architecture](#system-architecture) · [Features](#features) · [Database](#database) · [License](#license)
+[Features](#features) · [Technology Stack](#️-technology-stack) · [Interactive Prototype](#-interactive-prototype) · [Architecture](#system-architecture) ·
+ [Database](#database) · [License](#license)
 
 </div>
 
@@ -43,6 +44,13 @@ This project simulates a secure, fault-tolerant money transfer process between t
 * **Database:** PostgreSQL 16
 * **Machine Learning:** Python, FastAPI, scikit-learn
 * **Infrastructure:** Docker, Docker Compose
+
+## 🚀 Interactive Prototype
+
+The complete interactive prototype is available as a live GitHub Pages site.
+
+<p align="center"> <a href="https://erayyalman.github.io/fault-tolerant-money-transfer/"> <strong>→ Open the Live Interactive Prototype ←</strong> </a> </p>
+
 
 <a id="system-architecture"></a>
 ## 🏗️ System Architecture
@@ -114,7 +122,7 @@ SOFTWARE.
 ![scikit-learn](https://img.shields.io/badge/scikit_learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-[Mimari](#sistem-mimarisi-tr) · [Özellikler](#ozellikler-tr) · [Veritabanı](#veritabani-tr) · [Lisans](#lisans-tr)
+[Mimari](#sistem-mimarisi-tr) · [Özellikler](#ozellikler-tr) · [Teknolojiler](#️-teknolojiler) · [Etkileşimli Prototype](#-etkileşimli-prototype) · [Veritabanı](#veritabani-tr) · [Lisans](#lisans-tr)
 
 </div>
 
@@ -135,6 +143,12 @@ Bu proje, mikroservisler arasında güvenli ve hata toleranslı bir para transfe
 * **Veritabanı:** PostgreSQL 16
 * **Makine Öğrenmesi:** Python, FastAPI, scikit-learn
 * **Altyapı:** Docker, Docker Compose
+
+## 🚀 Etkileşimli Prototype
+
+Prototype'ın tamamını GitHub Pages üzerinden canlı olarak inceleyebilirsiniz.
+
+<p align="center"> <a href="https://erayyalman.github.io/fault-tolerant-money-transfer/"> <strong>→ Canlı Interactive Prototype'ı Aç ←</strong> </a> </p>
 
 <a id="sistem-mimarisi-tr"></a>
 ## 🏗️ Sistem Mimari Çizimleri
