@@ -1,0 +1,102 @@
+services:
+
+  postgres-transfer:
+    image: postgres:16-alpine
+    container_name: postgres-transfer
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_TRANSFER_DB}
+      POSTGRES_USER: ${POSTGRES_TRANSFER_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_TRANSFER_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_transfer_data:/var/lib/postgresql/data
+    networks:
+      - fintech-network
+
+  postgres-payment-a:
+    image: postgres:16-alpine
+    container_name: postgres-payment-a
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_PAYMENT_A_DB}
+      POSTGRES_USER: ${POSTGRES_PAYMENT_A_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PAYMENT_A_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_payment_a_data:/var/lib/postgresql/data
+    networks:
+      - fintech-network
+
+  postgres-payment-b:
+    image: postgres:16-alpine
+    container_name: postgres-payment-b
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_PAYMENT_B_DB}
+      POSTGRES_USER: ${POSTGRES_PAYMENT_B_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PAYMENT_B_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_payment_b_data:/var/lib/postgresql/data
+    networks:
+      - fintech-network
+
+  postgres-reconciliation:
+    image: postgres:16-alpine
+    container_name: postgres-reconciliation
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_RECONCILIATION_DB}
+      POSTGRES_USER: ${POSTGRES_RECONCILIATION_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_RECONCILIATION_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_reconciliation_data:/var/lib/postgresql/data
+    networks:
+      - fintech-network
+
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_LISTENERS: PLAINTEXT://:19092,CONTROLLER://:9093,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - fintech-network
+
+networks:
+  fintech-network:
+    driver: bridge
+
+volumes:
+  postgres_transfer_data:
+  postgres_payment_a_data:
+  postgres_payment_b_data:
+  postgres_reconciliation_data:
+  kafka_data:
