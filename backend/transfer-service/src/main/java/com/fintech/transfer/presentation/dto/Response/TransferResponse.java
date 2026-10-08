@@ -1,11 +1,13 @@
 package com.fintech.transfer.presentation.dto.Response;
 
 import com.fintech.transfer.domain.model.TransferStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+@Schema(description = "Transfer response")
 public record TransferResponse(
 
         UUID id,
