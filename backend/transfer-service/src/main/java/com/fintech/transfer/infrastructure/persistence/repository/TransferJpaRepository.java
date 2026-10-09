@@ -9,5 +9,7 @@ import java.util.UUID;
 public interface TransferJpaRepository extends JpaRepository<TransferJpaEntity, UUID> {
 
     Optional<TransferJpaEntity> findByIdempotencyKey(String idempotencyKey);
+
+    Optional<TransferJpaEntity> findByCorrelationId(UUID correlationId);
     
 }

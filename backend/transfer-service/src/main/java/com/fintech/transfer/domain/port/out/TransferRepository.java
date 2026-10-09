@@ -11,5 +11,7 @@ public interface TransferRepository {
 
     Optional<Transfer> findById(UUID transferId);
 
+    Optional<Transfer> findByCorrelationId(UUID correlationId);
+
     Optional<Transfer> findByIdempotencyKey(String idempotencyKey);
 }
