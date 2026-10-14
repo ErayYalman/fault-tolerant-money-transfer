@@ -10,7 +10,7 @@ import java.util.UUID;
 @Schema(description = "Transfer response")
 public record TransferResponse(
 
-        UUID id,
+        UUID transferId,
         UUID correlationId,
         String idempotencyKey,
 

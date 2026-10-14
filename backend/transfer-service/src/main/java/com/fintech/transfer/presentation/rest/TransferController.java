@@ -43,9 +43,13 @@ public class TransferController {
                 this.mapper = mapper;
         }
 
-        @Operation(summary = "Create a transfer", description = "Creates a new transfer in PENDING state. " +
-                        "Repeated requests with the same idempotency key return " +
-                        "the existing transfer.")
+        @Operation(summary = "Create a transfer", description = """
+                        Creates a transfer and atomically persists its initial
+                        debit command in the Outbox. The initial lifecycle
+                        state after command persistence is DEBIT_REQUESTED.
+                        Repeated requests with the same idempotency key return
+                        the existing transfer.
+                        """)
         @ApiResponses({
                         @ApiResponse(responseCode = "201", description = "Transfer successfully created"),
                         @ApiResponse(responseCode = "200", description = "Existing transfer returned for duplicate idempotency key"),
@@ -64,7 +68,7 @@ public class TransferController {
                 }
 
                 URI location = URI.create(
-                                "/api/v1/transfers/" + response.id());
+                                "/api/v1/transfers/" + response.transferId());
 
                 return ResponseEntity
                                 .created(location)

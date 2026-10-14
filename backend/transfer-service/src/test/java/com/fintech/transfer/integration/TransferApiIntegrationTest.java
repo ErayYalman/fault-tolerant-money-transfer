@@ -14,149 +14,192 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 
 @Testcontainers
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TransferApiIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("transfer_api_test_db")
-                    .withUsername("transfer_api_test_user")
-                    .withPassword("transfer_api_test_password");
+  @SuppressWarnings("resource")
+  @Container
+  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+      .withDatabaseName("transfer_api_test_db")
+      .withUsername("transfer_api_test_user")
+      .withPassword("transfer_api_test_password");
 
-    @DynamicPropertySource
-    static void registerDataSourceProperties(
-            DynamicPropertyRegistry registry
-    ) {
-        registry.add(
-                "spring.datasource.url",
-                POSTGRES::getJdbcUrl
-        );
+  @DynamicPropertySource
+  static void registerDataSourceProperties(
+      DynamicPropertyRegistry registry) {
+    registry.add(
+        "spring.datasource.url",
+        POSTGRES::getJdbcUrl);
 
-        registry.add(
-                "spring.datasource.username",
-                POSTGRES::getUsername
-        );
+    registry.add(
+        "spring.datasource.username",
+        POSTGRES::getUsername);
 
-        registry.add(
-                "spring.datasource.password",
-                POSTGRES::getPassword
-        );
-    }
+    registry.add(
+        "spring.datasource.password",
+        POSTGRES::getPassword);
+  }
 
-    @LocalServerPort
-    private int port;
+  @LocalServerPort
+  private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+  @Autowired
+  private TestRestTemplate restTemplate;
 
-    @Test
-    void shouldCreateTransfer() {
-        String idempotencyKey =
-                "integration-" + UUID.randomUUID();
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
 
-        String request = """
-                {
-                  "amount": 1500.00,
-                  "currency": "TRY",
-                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
-                  "idempotencyKey": "%s"
-                }
-                """.formatted(idempotencyKey);
+  @Autowired
+  private ObjectMapper objectMapper;
 
-        ResponseEntity<String> response =
-                postTransfer(request);
+  @Test
+  void shouldCreateTransfer() {
+    String idempotencyKey = "integration-" + UUID.randomUUID();
 
-        assertThat(response.getStatusCode())
-                .isEqualTo(HttpStatus.CREATED);
+    String request = """
+        {
+          "amount": 1500.00,
+          "currency": "TRY",
+          "fromAccountId": "11111111-1111-1111-1111-111111111111",
+          "toAccountId": "22222222-2222-2222-2222-222222222222",
+          "idempotencyKey": "%s"
+        }
+        """.formatted(idempotencyKey);
 
-        assertThat(response.getBody())
-                .contains("\"status\":\"PENDING\"")
-                .contains("\"idempotencyKey\":\""
-                        + idempotencyKey + "\"");
-    }
+    ResponseEntity<String> response = postTransfer(request);
 
-    @Test
-    void shouldReturnExistingTransferForDuplicateIdempotencyKey() {
-        String idempotencyKey =
-                "duplicate-" + UUID.randomUUID();
+    assertThat(response.getStatusCode())
+        .isEqualTo(HttpStatus.CREATED);
 
-        String request = """
-                {
-                  "amount": 1000.00,
-                  "currency": "TRY",
-                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
-                  "idempotencyKey": "%s"
-                }
-                """.formatted(idempotencyKey);
+    assertThat(response.getBody())
+        .contains("\"status\":\"DEBIT_REQUESTED\"")
+        .contains("\"idempotencyKey\":\""
+            + idempotencyKey + "\"");
+  }
 
-        ResponseEntity<String> first =
-                postTransfer(request);
+  @Test
+  void shouldReturnExistingTransferForDuplicateIdempotencyKey() {
+    String idempotencyKey = "duplicate-" + UUID.randomUUID();
 
-        ResponseEntity<String> second =
-                postTransfer(request);
+    String request = """
+        {
+          "amount": 1000.00,
+          "currency": "TRY",
+          "fromAccountId": "11111111-1111-1111-1111-111111111111",
+          "toAccountId": "22222222-2222-2222-2222-222222222222",
+          "idempotencyKey": "%s"
+        }
+        """.formatted(idempotencyKey);
 
-        assertThat(first.getStatusCode())
-                .isEqualTo(HttpStatus.CREATED);
+    ResponseEntity<String> first = postTransfer(request);
 
-        assertThat(second.getStatusCode())
-                .isEqualTo(HttpStatus.OK);
+    ResponseEntity<String> second = postTransfer(request);
 
-        DocumentContext firstContext = JsonPath.parse(first.getBody());
-        DocumentContext secondContext = JsonPath.parse(second.getBody());
+    assertThat(first.getStatusCode())
+        .isEqualTo(HttpStatus.CREATED);
 
-        assertThat(secondContext.read("$.id", String.class))
-                .isEqualTo(firstContext.read("$.id", String.class));
+    assertThat(second.getStatusCode())
+        .isEqualTo(HttpStatus.OK);
 
-        assertThat(secondContext.read("$.status", String.class))
-                .isEqualTo("PENDING");
-    }
+    DocumentContext firstContext = JsonPath.parse(first.getBody());
+    DocumentContext secondContext = JsonPath.parse(second.getBody());
 
-    @Test
-    void shouldRejectSameSourceAndTargetAccount() {
-        String request = """
-                {
-                  "amount": 1000.00,
-                  "currency": "TRY",
-                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "11111111-1111-1111-1111-111111111111",
-                  "idempotencyKey": "same-account-%s"
-                }
-                """.formatted(UUID.randomUUID());
+    assertThat(secondContext.read("$.transferId", String.class))
+        .isEqualTo(firstContext.read("$.transferId", String.class));
 
-        ResponseEntity<String> response =
-                postTransfer(request);
+    assertThat(secondContext.read("$.status", String.class))
+        .isEqualTo("DEBIT_REQUESTED");
+  }
 
-        assertThat(response.getStatusCode())
-                .isEqualTo(HttpStatus.BAD_REQUEST);
-    }
+  @Test
+  void shouldRejectSameSourceAndTargetAccount() {
+    String request = """
+        {
+          "amount": 1000.00,
+          "currency": "TRY",
+          "fromAccountId": "11111111-1111-1111-1111-111111111111",
+          "toAccountId": "11111111-1111-1111-1111-111111111111",
+          "idempotencyKey": "same-account-%s"
+        }
+        """.formatted(UUID.randomUUID());
 
-    private ResponseEntity<String> postTransfer(
-            String body
-    ) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+    ResponseEntity<String> response = postTransfer(request);
 
-        return restTemplate.postForEntity(
-                "http://localhost:" + port
-                        + "/api/v1/transfers",
-                new HttpEntity<>(body, headers),
-                String.class
-        );
-    }
+    assertThat(response.getStatusCode())
+        .isEqualTo(HttpStatus.BAD_REQUEST);
+  }
+
+  private ResponseEntity<String> postTransfer(
+      String body) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    return restTemplate.postForEntity(
+        "http://localhost:" + port
+            + "/api/v1/transfers",
+        new HttpEntity<>(body, headers),
+        String.class);
+  }
+
+  @Test
+  void shouldPersistTransferSagaStateAndInitialCommand() throws Exception {
+    String idempotencyKey = "outbox-integration-" + UUID.randomUUID();
+
+    String request = """
+        {
+          "amount": 1500.00,
+          "currency": "TRY",
+          "fromAccountId": "11111111-1111-1111-1111-111111111111",
+          "toAccountId": "22222222-2222-2222-2222-222222222222",
+          "idempotencyKey": "%s"
+        }
+        """.formatted(idempotencyKey);
+
+    ResponseEntity<String> response = postTransfer(request);
+
+    assertThat(response.getStatusCode())
+        .isEqualTo(HttpStatus.CREATED);
+
+    UUID transferId = UUID.fromString(
+        objectMapper.readTree(response.getBody())
+            .get("transferId")
+            .asText());
+
+    String status = jdbcTemplate.queryForObject(
+        "SELECT status FROM transfers WHERE id = ?",
+        String.class,
+        transferId);
+
+    Long sagaCount = jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM saga_state WHERE transfer_id = ?",
+        Long.class,
+        transferId);
+
+    Long outboxCount = jdbcTemplate.queryForObject(
+        """
+            SELECT COUNT(*)
+            FROM outbox_events
+            WHERE aggregate_id = ?
+              AND event_type = 'debit-requested'
+              AND status = 'PENDING'
+            """,
+        Long.class,
+        transferId);
+
+    assertThat(status).isEqualTo("DEBIT_REQUESTED");
+    assertThat(sagaCount).isEqualTo(1L);
+    assertThat(outboxCount).isEqualTo(1L);
+  }
 }

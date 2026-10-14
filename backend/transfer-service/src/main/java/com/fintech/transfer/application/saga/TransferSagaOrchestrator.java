@@ -11,174 +11,176 @@ import com.fintech.transfer.domain.model.SagaState;
 import com.fintech.transfer.domain.model.Transfer;
 import com.fintech.transfer.domain.port.out.SagaStateRepository;
 import com.fintech.transfer.domain.port.out.TransferRepository;
+import org.springframework.stereotype.Service;
 
+@Service
 public class TransferSagaOrchestrator {
 
-    private final TransferRepository transferRepository;
-    private final SagaStateRepository sagaStateRepository;
+        private final TransferRepository transferRepository;
+        private final SagaStateRepository sagaStateRepository;
 
-    public TransferSagaOrchestrator(
-            TransferRepository transferRepository,
-            SagaStateRepository sagaStateRepository) {
-        this.transferRepository = transferRepository;
-        this.sagaStateRepository = sagaStateRepository;
-    }
+        public TransferSagaOrchestrator(
+                        TransferRepository transferRepository,
+                        SagaStateRepository sagaStateRepository) {
+                this.transferRepository = transferRepository;
+                this.sagaStateRepository = sagaStateRepository;
+        }
 
-    @Transactional
-    public SagaDecision startDebit(
-            UUID transferId,
-            Instant now) {
-        Transfer transfer = findTransfer(transferId);
+        @Transactional
+        public SagaDecision startDebit(
+                        UUID transferId,
+                        Instant now) {
+                Transfer transfer = findTransfer(transferId);
 
-        SagaState sagaState = findSagaState(transfer.getId());
+                SagaState sagaState = findSagaState(transfer.getId());
 
-        transfer.requestDebit(now);
+                transfer.requestDebit(now);
 
-        save(
-                transfer,
-                sagaState);
+                save(
+                                transfer,
+                                sagaState);
 
-        return new SagaDecision(
-                SagaAction.REQUEST_DEBIT,
-                transfer);
-    }
+                return new SagaDecision(
+                                SagaAction.REQUEST_DEBIT,
+                                transfer);
+        }
 
-    @Transactional
-    public SagaDecision onDebitCompleted(
-            UUID correlationId,
-            Instant now) {
-        Transfer transfer = findTransferByCorrelationId(correlationId);
+        @Transactional
+        public SagaDecision onDebitCompleted(
+                        UUID correlationId,
+                        Instant now) {
+                Transfer transfer = findTransferByCorrelationId(correlationId);
 
-        SagaState sagaState = findSagaState(transfer.getId());
+                SagaState sagaState = findSagaState(transfer.getId());
 
-        transfer.completeDebit(now);
-        sagaState.moveToCredit(now);
+                transfer.completeDebit(now);
+                sagaState.moveToCredit(now);
 
-        save(
-                transfer,
-                sagaState);
+                save(
+                                transfer,
+                                sagaState);
 
-        return new SagaDecision(
-                SagaAction.REQUEST_CREDIT,
-                transfer);
-    }
+                return new SagaDecision(
+                                SagaAction.REQUEST_CREDIT,
+                                transfer);
+        }
 
-    @Transactional
-    public SagaDecision onDebitFailed(
-            UUID correlationId,
-            String failureReason,
-            Instant now) {
-        Transfer transfer = findTransferByCorrelationId(correlationId);
+        @Transactional
+        public SagaDecision onDebitFailed(
+                        UUID correlationId,
+                        String failureReason,
+                        Instant now) {
+                Transfer transfer = findTransferByCorrelationId(correlationId);
 
-        SagaState sagaState = findSagaState(transfer.getId());
+                SagaState sagaState = findSagaState(transfer.getId());
 
-        transfer.failDebit(
-                failureReason,
-                now);
+                transfer.failDebit(
+                                failureReason,
+                                now);
 
-        sagaState.finish(now);
+                sagaState.finish(now);
 
-        save(
-                transfer,
-                sagaState);
+                save(
+                                transfer,
+                                sagaState);
 
-        return new SagaDecision(
-                SagaAction.NONE,
-                transfer);
-    }
+                return new SagaDecision(
+                                SagaAction.NONE,
+                                transfer);
+        }
 
-    @Transactional
-    public SagaDecision onCreditCompleted(
-            UUID correlationId,
-            Instant now) {
-        Transfer transfer = findTransferByCorrelationId(correlationId);
+        @Transactional
+        public SagaDecision onCreditCompleted(
+                        UUID correlationId,
+                        Instant now) {
+                Transfer transfer = findTransferByCorrelationId(correlationId);
 
-        SagaState sagaState = findSagaState(transfer.getId());
+                SagaState sagaState = findSagaState(transfer.getId());
 
-        transfer.completeCredit(now);
-        sagaState.finish(now);
+                transfer.completeCredit(now);
+                sagaState.finish(now);
 
-        save(
-                transfer,
-                sagaState);
+                save(
+                                transfer,
+                                sagaState);
 
-        return new SagaDecision(
-                SagaAction.NONE,
-                transfer);
-    }
+                return new SagaDecision(
+                                SagaAction.NONE,
+                                transfer);
+        }
 
-    @Transactional
-    public SagaDecision onCreditFailed(
-            UUID correlationId,
-            String failureReason,
-            Instant now) {
-        Transfer transfer = findTransferByCorrelationId(correlationId);
+        @Transactional
+        public SagaDecision onCreditFailed(
+                        UUID correlationId,
+                        String failureReason,
+                        Instant now) {
+                Transfer transfer = findTransferByCorrelationId(correlationId);
 
-        SagaState sagaState = findSagaState(transfer.getId());
+                SagaState sagaState = findSagaState(transfer.getId());
 
-        transfer.failCredit(
-                failureReason,
-                now);
+                transfer.failCredit(failureReason, now);
 
-        sagaState.moveToCompensation(now);
+                transfer.startCompensation(now);
 
-        save(
-                transfer,
-                sagaState);
+                sagaState.moveToCompensation(now);
 
-        return new SagaDecision(
-                SagaAction.REQUEST_DEBIT_COMPENSATION,
-                transfer);
-    }
+                save(
+                                transfer,
+                                sagaState);
 
-    @Transactional
-    public SagaDecision onDebitCompensated(
-            UUID correlationId,
-            Instant now) {
-        Transfer transfer = findTransferByCorrelationId(correlationId);
+                return new SagaDecision(
+                                SagaAction.REQUEST_DEBIT_COMPENSATION,
+                                transfer);
+        }
 
-        SagaState sagaState = findSagaState(transfer.getId());
+        @Transactional
+        public SagaDecision onDebitCompensated(
+                        UUID correlationId,
+                        Instant now) {
+                Transfer transfer = findTransferByCorrelationId(correlationId);
 
-        transfer.completeCompensation(now);
-        sagaState.finish(now);
+                SagaState sagaState = findSagaState(transfer.getId());
 
-        save(
-                transfer,
-                sagaState);
+                transfer.completeCompensation(now);
+                sagaState.finish(now);
 
-        return new SagaDecision(
-                SagaAction.NONE,
-                transfer);
-    }
+                save(
+                                transfer,
+                                sagaState);
 
-    private Transfer findTransfer(UUID transferId) {
-        return transferRepository
-                .findById(transferId)
-                .orElseThrow(
-                        () -> new TransferNotFoundException(transferId));
-    }
+                return new SagaDecision(
+                                SagaAction.NONE,
+                                transfer);
+        }
 
-    private Transfer findTransferByCorrelationId(
-            UUID correlationId) {
-        return transferRepository
-                .findByCorrelationId(correlationId)
-                .orElseThrow(
-                        () -> new TransferNotFoundException(
-                                correlationId));
-    }
+        private Transfer findTransfer(UUID transferId) {
+                return transferRepository
+                                .findById(transferId)
+                                .orElseThrow(
+                                                () -> new TransferNotFoundException(transferId));
+        }
 
-    private SagaState findSagaState(UUID transferId) {
-        return sagaStateRepository
-                .findByTransferId(transferId)
-                .orElseThrow(
-                        () -> new SagaStateNotFoundException(
-                                transferId));
-    }
+        private Transfer findTransferByCorrelationId(
+                        UUID correlationId) {
+                return transferRepository
+                                .findByCorrelationId(correlationId)
+                                .orElseThrow(
+                                                () -> new TransferNotFoundException(
+                                                                correlationId));
+        }
 
-    private void save(
-            Transfer transfer,
-            SagaState sagaState) {
-        transferRepository.save(transfer);
-        sagaStateRepository.save(sagaState);
-    }
+        private SagaState findSagaState(UUID transferId) {
+                return sagaStateRepository
+                                .findByTransferId(transferId)
+                                .orElseThrow(
+                                                () -> new SagaStateNotFoundException(
+                                                                transferId));
+        }
+
+        private void save(
+                        Transfer transfer,
+                        SagaState sagaState) {
+                transferRepository.save(transfer);
+                sagaStateRepository.save(sagaState);
+        }
 }

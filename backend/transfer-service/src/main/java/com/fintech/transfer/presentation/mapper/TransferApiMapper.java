@@ -6,15 +6,15 @@ import com.fintech.transfer.presentation.dto.Request.CreateTransferRequest;
 import com.fintech.transfer.presentation.dto.Response.TransferResponse;
 
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;  
+import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface TransferApiMapper {
 
     InitiateTransferUseCase.InitiateTransferCommand toCommand(
-            CreateTransferRequest request
-    );
+            CreateTransferRequest request);
 
+    @Mapping(target = "transferId", source = "id")
     @Mapping(target = "amount", source = "money.amount")
     @Mapping(target = "currency", source = "money.currency")
     TransferResponse toResponse(Transfer transfer);
