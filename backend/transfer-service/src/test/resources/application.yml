@@ -1,0 +1,7 @@
+app:
+  kafka:
+    enabled: false
+
+  outbox:
+    relay:
+      enabled: false

@@ -37,22 +37,29 @@ public class OutboxRelay {
         for (PendingOutboxMessage message : messages) {
             try {
                 transport.publish(message);
-
-                Instant publishedAt = Instant.now(clock);
-                outboxStore.markPublished(message.id(), publishedAt);
-
-                publishedCount++;
             } catch (RuntimeException exception) {
                 log.warn(
-                        "Outbox publication failed for message {} of type {}. "
-                                + "The message remains pending and later messages "
-                                + "in this batch will not be processed.",
+                        "Transport failed for outbox message {}. "
+                                + "The message remains pending.",
                         message.id(),
-                        message.eventType(),
-                        exception);
+                        exception
+                );
+                break;
+            }
 
-                // durdurur, çünkü bir sonraki mesajın yayınlanması, 
-                // önceki mesajın hala beklemede olması durumunda gerçekleşemez.
+            try {
+                outboxStore.markPublished(
+                        message.id(),
+                        Instant.now(clock)
+                );
+                publishedCount++;
+            } catch (RuntimeException exception) {
+                log.error(
+                        "Message {} was sent, but its outbox status could not "
+                                + "be updated. Duplicate delivery may occur.",
+                        message.id(),
+                        exception
+                );
                 break;
             }
         }

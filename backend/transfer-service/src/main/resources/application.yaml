@@ -22,6 +22,18 @@ spring:
   flyway:
     enabled: true
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        "[enable.idempotence]": "true"
+        "[request.timeout.ms]": "5000"
+        "[delivery.timeout.ms]": "10000"
+        "[max.block.ms]": "10000"
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -37,3 +49,15 @@ management:
     health:
       probes:
         enabled: true
+
+app:
+  kafka:
+    enabled: true
+    topic-partitions: ${KAFKA_TOPIC_PARTITIONS:3}
+
+  outbox:
+    relay:
+      enabled: true
+      poll-interval-ms: 1000
+      batch-size: 100
+      send-timeout-ms: 10000
