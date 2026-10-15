@@ -48,18 +48,16 @@ public class TransferSagaOrchestrator {
         @Transactional
         public SagaDecision onDebitCompleted(
                         UUID correlationId,
-                        Instant now) {
+                        Instant debitProcessedAt,
+                        Instant creditRequestedAt) {
                 Transfer transfer = findTransferByCorrelationId(correlationId);
-
                 SagaState sagaState = findSagaState(transfer.getId());
 
-                transfer.completeDebit(now);
-                transfer.requestCredit(now);
-                sagaState.moveToCredit(now);
+                transfer.completeDebit(debitProcessedAt);
+                transfer.requestCredit(creditRequestedAt);
+                sagaState.moveToCredit(creditRequestedAt);
 
-                save(
-                                transfer,
-                                sagaState);
+                save(transfer, sagaState);
 
                 return new SagaDecision(
                                 SagaAction.REQUEST_CREDIT,
@@ -70,20 +68,14 @@ public class TransferSagaOrchestrator {
         public SagaDecision onDebitFailed(
                         UUID correlationId,
                         String failureReason,
-                        Instant now) {
+                        Instant failedAt) {
                 Transfer transfer = findTransferByCorrelationId(correlationId);
-
                 SagaState sagaState = findSagaState(transfer.getId());
 
-                transfer.failDebit(
-                                failureReason,
-                                now);
+                transfer.failDebit(failureReason, failedAt);
+                sagaState.finish(failedAt);
 
-                sagaState.finish(now);
-
-                save(
-                                transfer,
-                                sagaState);
+                save(transfer, sagaState);
 
                 return new SagaDecision(
                                 SagaAction.NONE,
@@ -93,17 +85,14 @@ public class TransferSagaOrchestrator {
         @Transactional
         public SagaDecision onCreditCompleted(
                         UUID correlationId,
-                        Instant now) {
+                        Instant processedAt) {
                 Transfer transfer = findTransferByCorrelationId(correlationId);
-
                 SagaState sagaState = findSagaState(transfer.getId());
 
-                transfer.completeCredit(now);
-                sagaState.finish(now);
+                transfer.completeCredit(processedAt);
+                sagaState.finish(processedAt);
 
-                save(
-                                transfer,
-                                sagaState);
+                save(transfer, sagaState);
 
                 return new SagaDecision(
                                 SagaAction.NONE,
@@ -114,20 +103,16 @@ public class TransferSagaOrchestrator {
         public SagaDecision onCreditFailed(
                         UUID correlationId,
                         String failureReason,
-                        Instant now) {
+                        Instant creditFailedAt,
+                        Instant compensationRequestedAt) {
                 Transfer transfer = findTransferByCorrelationId(correlationId);
-
                 SagaState sagaState = findSagaState(transfer.getId());
 
-                transfer.failCredit(failureReason, now);
+                transfer.failCredit(failureReason, creditFailedAt);
+                transfer.startCompensation(compensationRequestedAt);
+                sagaState.moveToCompensation(compensationRequestedAt);
 
-                transfer.startCompensation(now);
-
-                sagaState.moveToCompensation(now);
-
-                save(
-                                transfer,
-                                sagaState);
+                save(transfer, sagaState);
 
                 return new SagaDecision(
                                 SagaAction.REQUEST_DEBIT_COMPENSATION,
@@ -137,17 +122,14 @@ public class TransferSagaOrchestrator {
         @Transactional
         public SagaDecision onDebitCompensated(
                         UUID correlationId,
-                        Instant now) {
+                        Instant compensatedAt) {
                 Transfer transfer = findTransferByCorrelationId(correlationId);
-
                 SagaState sagaState = findSagaState(transfer.getId());
 
-                transfer.completeCompensation(now);
-                sagaState.finish(now);
+                transfer.completeCompensation(compensatedAt);
+                sagaState.finish(compensatedAt);
 
-                save(
-                                transfer,
-                                sagaState);
+                save(transfer, sagaState);
 
                 return new SagaDecision(
                                 SagaAction.NONE,

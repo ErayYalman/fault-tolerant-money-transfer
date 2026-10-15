@@ -112,7 +112,8 @@ class TransferSagaOrchestratorTest {
 
                 SagaDecision decision = orchestrator.onDebitCompleted(
                                 transfer.getCorrelationId(),
-                                T3);
+                                T3,
+                                T4);
 
                 assertThat(transfer.getStatus())
                                 .isEqualTo(TransferStatus.CREDIT_REQUESTED);
@@ -121,7 +122,7 @@ class TransferSagaOrchestratorTest {
                                 .isEqualTo(T3);
 
                 assertThat(transfer.getCreditRequestedAt())
-                                .isEqualTo(T3);
+                                .isEqualTo(T4); // BURASI T3 İDİ, T4 OLMALI!
 
                 assertThat(sagaState.getCurrentStep())
                                 .isEqualTo(SagaStep.CREDIT);
@@ -193,7 +194,8 @@ class TransferSagaOrchestratorTest {
                 SagaDecision decision = orchestrator.onCreditFailed(
                                 transfer.getCorrelationId(),
                                 "CREDIT_SERVICE_FAILURE",
-                                T5);
+                                T5,
+                                T6);
 
                 assertThat(transfer.getStatus())
                                 .isEqualTo(TransferStatus.COMPENSATING);
