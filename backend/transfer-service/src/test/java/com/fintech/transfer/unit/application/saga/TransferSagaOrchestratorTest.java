@@ -224,7 +224,7 @@ class TransferSagaOrchestratorTest {
                                 transfer.getId(),
                                 T1);
 
-                sagaState.moveToCredit(T3);
+                sagaState.moveToCredit(T4);
 
                 when(transferRepository
                                 .findByCorrelationId(transfer.getCorrelationId()))
@@ -266,7 +266,7 @@ class TransferSagaOrchestratorTest {
                                 T1);
 
                 sagaState.moveToCredit(T3);
-                sagaState.moveToCompensation(T5);
+                sagaState.moveToCompensation(T6);
 
                 when(transferRepository
                                 .findByCorrelationId(transfer.getCorrelationId()))
