@@ -115,9 +115,12 @@ class TransferSagaOrchestratorTest {
                                 T3);
 
                 assertThat(transfer.getStatus())
-                                .isEqualTo(TransferStatus.DEBIT_COMPLETED);
+                                .isEqualTo(TransferStatus.CREDIT_REQUESTED);
 
                 assertThat(transfer.getDebitCompletedAt())
+                                .isEqualTo(T3);
+
+                assertThat(transfer.getCreditRequestedAt())
                                 .isEqualTo(T3);
 
                 assertThat(sagaState.getCurrentStep())

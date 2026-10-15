@@ -54,6 +54,7 @@ public class TransferSagaOrchestrator {
                 SagaState sagaState = findSagaState(transfer.getId());
 
                 transfer.completeDebit(now);
+                transfer.requestCredit(now);
                 sagaState.moveToCredit(now);
 
                 save(
