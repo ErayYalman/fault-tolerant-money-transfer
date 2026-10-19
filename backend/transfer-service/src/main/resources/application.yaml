@@ -65,10 +65,12 @@ app:
   kafka:
     enabled: true
     topic-partitions: ${KAFKA_TOPIC_PARTITIONS:3}
+    consumer:
+      retry-interval-ms: ${KAFKA_CONSUMER_RETRY_INTERVAL_MS:1000}
 
   outbox:
     relay:
       enabled: true
-      poll-interval-ms: 1000
-      batch-size: 100
-      send-timeout-ms: 10000
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: ${OUTBOX_BATCH_SIZE:100}
+    send-timeout-ms: ${OUTBOX_SEND_TIMEOUT_MS:10000}
