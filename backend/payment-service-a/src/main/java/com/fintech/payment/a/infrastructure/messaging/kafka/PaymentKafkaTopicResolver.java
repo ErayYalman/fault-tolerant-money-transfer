@@ -9,9 +9,9 @@ public class PaymentKafkaTopicResolver {
         return switch (eventType) {
             case "debit-completed" -> PaymentKafkaTopics.DEBIT_COMPLETED;
             case "debit-failed" -> PaymentKafkaTopics.DEBIT_FAILED;
+            case "debit-compensated" -> PaymentKafkaTopics.DEBIT_COMPENSATED;
             default -> throw new IllegalArgumentException(
-                    "Unsupported payment outbox event type: " + eventType
-            );
+                    "Unsupported payment outbox event type: " + eventType);
         };
     }
 }

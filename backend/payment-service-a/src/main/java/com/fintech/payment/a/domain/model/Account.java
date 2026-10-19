@@ -34,45 +34,38 @@ public final class Account {
             String currency,
             AccountStatus status,
             long version,
-            Instant updatedAt
-    ) {
+            Instant updatedAt) {
         this.id = Objects.requireNonNull(id, "id must not be null");
 
         if (accountNumber == null || accountNumber.isBlank()) {
             throw new IllegalArgumentException(
-                    "accountNumber must not be blank"
-            );
+                    "accountNumber must not be blank");
         }
 
         this.accountNumber = accountNumber;
         this.balance = Objects.requireNonNull(
                 balance,
-                "balance must not be null"
-        );
+                "balance must not be null");
 
         if (balance.signum() < 0) {
             throw new IllegalArgumentException(
-                    "balance must not be negative"
-            );
+                    "balance must not be negative");
         }
 
         this.currency = normalizeCurrency(currency);
         this.status = Objects.requireNonNull(
                 status,
-                "status must not be null"
-        );
+                "status must not be null");
 
         if (version < 0) {
             throw new IllegalArgumentException(
-                    "version must not be negative"
-            );
+                    "version must not be negative");
         }
 
         this.version = version;
         this.updatedAt = Objects.requireNonNull(
                 updatedAt,
-                "updatedAt must not be null"
-        );
+                "updatedAt must not be null");
     }
 
     public static Account rehydrate(
@@ -82,8 +75,7 @@ public final class Account {
             String currency,
             AccountStatus status,
             long version,
-            Instant updatedAt
-    ) {
+            Instant updatedAt) {
         return new Account(
                 id,
                 accountNumber,
@@ -91,34 +83,29 @@ public final class Account {
                 currency,
                 status,
                 version,
-                updatedAt
-        );
+                updatedAt);
     }
 
     public DebitResult debit(
             BigDecimal amount,
             String transactionCurrency,
-            Instant now
-    ) {
+            Instant now) {
         Objects.requireNonNull(amount, "amount must not be null");
         Objects.requireNonNull(
                 transactionCurrency,
-                "transactionCurrency must not be null"
-        );
+                "transactionCurrency must not be null");
         Objects.requireNonNull(now, "now must not be null");
 
         if (amount.signum() <= 0) {
             throw new IllegalArgumentException(
-                    "amount must be greater than zero"
-            );
+                    "amount must be greater than zero");
         }
 
         if (status != AccountStatus.ACTIVE) {
             throw new AccountNotActiveException();
         }
 
-        String normalizedTransactionCurrency =
-                normalizeCurrency(transactionCurrency);
+        String normalizedTransactionCurrency = normalizeCurrency(transactionCurrency);
 
         if (!currency.equals(normalizedTransactionCurrency)) {
             throw new CurrencyMismatchException();
@@ -137,6 +124,46 @@ public final class Account {
         return new DebitResult(balanceBefore, balanceAfter);
     }
 
+    public ReversalResult reverseDebit(
+            BigDecimal amount,
+            String transactionCurrency,
+            Instant now) {
+        Objects.requireNonNull(amount, "amount must not be null");
+        Objects.requireNonNull(
+                transactionCurrency,
+                "transactionCurrency must not be null");
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (amount.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "amount must be greater than zero");
+        }
+
+        String normalizedTransactionCurrency = normalizeCurrency(transactionCurrency);
+
+        if (!currency.equals(normalizedTransactionCurrency)) {
+            throw new CurrencyMismatchException();
+        }
+
+        /*
+         * Reversal, daha önce başarıyla gerçekleşmiş bir debit'i telafi eder.
+         * Bu yüzden normal debit'ten farklı olarak hesap ACTIVE olma şartı
+         * aranmaz. Hesabın durumu değiştirilmez.
+         */
+        BigDecimal balanceBefore = balance;
+        BigDecimal balanceAfter = balance.add(amount);
+
+        this.balance = balanceAfter;
+        this.updatedAt = now;
+
+        return new ReversalResult(balanceBefore, balanceAfter);
+    }
+
+    public record ReversalResult(
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter) {
+    }
+
     private static String normalizeCurrency(String currency) {
         Objects.requireNonNull(currency, "currency must not be null");
 
@@ -147,8 +174,7 @@ public final class Account {
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException(
                     "currency must be a valid ISO 4217 currency code",
-                    exception
-            );
+                    exception);
         }
 
         return normalized;
@@ -184,7 +210,6 @@ public final class Account {
 
     public record DebitResult(
             BigDecimal balanceBefore,
-            BigDecimal balanceAfter
-    ) {
+            BigDecimal balanceAfter) {
     }
 }

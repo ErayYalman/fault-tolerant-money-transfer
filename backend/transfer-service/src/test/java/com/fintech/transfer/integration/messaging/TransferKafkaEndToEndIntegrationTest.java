@@ -324,7 +324,7 @@ class TransferKafkaEndToEndIntegrationTest {
                                 .isEqualTo(transfer.getFromAccountId().toString());
 
                 assertThat(compensationCommand.path("reason").asText())
-                                .isEqualTo(failureReason);
+                                .isEqualTo("CREDIT_FAILED");
 
                 assertThat(compensationCommand.path("amount").decimalValue())
                                 .isEqualByComparingTo("250.00");

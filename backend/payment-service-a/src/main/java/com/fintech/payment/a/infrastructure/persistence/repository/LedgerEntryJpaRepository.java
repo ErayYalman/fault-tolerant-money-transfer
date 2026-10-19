@@ -1,10 +1,16 @@
 package com.fintech.payment.a.infrastructure.persistence.repository;
 
-import com.fintech.payment.a.infrastructure.persistence.entity.LedgerEntryJpaEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-
+import java.util.Optional;
 import java.util.UUID;
 
-public interface LedgerEntryJpaRepository
-        extends JpaRepository<LedgerEntryJpaEntity, UUID> {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.fintech.payment.a.domain.model.LedgerEntryType;
+import com.fintech.payment.a.infrastructure.persistence.entity.LedgerEntryJpaEntity;
+
+public interface LedgerEntryJpaRepository extends JpaRepository<LedgerEntryJpaEntity, UUID> {
+
+        Optional<LedgerEntryJpaEntity> findByCorrelationIdAndEntryType(
+                        UUID correlationId,
+                        LedgerEntryType entryType);
 }

@@ -8,4 +8,19 @@ import org.mapstruct.Mapper;
 public interface LedgerEntryPersistenceMapper {
 
     LedgerEntryJpaEntity toEntity(LedgerEntry entry);
+
+    default LedgerEntry toDomain(LedgerEntryJpaEntity entity) {
+        return new LedgerEntry(
+                entity.getId(),
+                entity.getTransferId(),
+                entity.getCorrelationId(),
+                entity.getAccountId(),
+                entity.getAmount(),
+                entity.getBalanceBefore(),
+                entity.getBalanceAfter(),
+                entity.getEntryType(),
+                entity.getStatus(),
+                entity.getCreatedAt()
+        );
+    }
 }

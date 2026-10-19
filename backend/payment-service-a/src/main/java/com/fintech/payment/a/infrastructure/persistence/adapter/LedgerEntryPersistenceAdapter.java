@@ -1,12 +1,17 @@
 package com.fintech.payment.a.infrastructure.persistence.adapter;
 
-import com.fintech.payment.a.domain.model.LedgerEntry;
-import com.fintech.payment.a.domain.port.out.LedgerEntryRepository;
-import com.fintech.payment.a.infrastructure.persistence.mapper.LedgerEntryPersistenceMapper;
-import com.fintech.payment.a.infrastructure.persistence.repository.LedgerEntryJpaRepository;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fintech.payment.a.domain.model.LedgerEntry;
+import com.fintech.payment.a.domain.model.LedgerEntryType;
+import com.fintech.payment.a.domain.port.out.LedgerEntryRepository;
+import com.fintech.payment.a.infrastructure.persistence.mapper.LedgerEntryPersistenceMapper;
+import com.fintech.payment.a.infrastructure.persistence.repository.LedgerEntryJpaRepository;
 
 @Repository
 public class LedgerEntryPersistenceAdapter implements LedgerEntryRepository {
@@ -16,8 +21,7 @@ public class LedgerEntryPersistenceAdapter implements LedgerEntryRepository {
 
     public LedgerEntryPersistenceAdapter(
             LedgerEntryJpaRepository repository,
-            LedgerEntryPersistenceMapper mapper
-    ) {
+            LedgerEntryPersistenceMapper mapper) {
         this.repository = repository;
         this.mapper = mapper;
     }
@@ -26,5 +30,15 @@ public class LedgerEntryPersistenceAdapter implements LedgerEntryRepository {
     @Transactional(propagation = Propagation.MANDATORY)
     public void save(LedgerEntry entry) {
         repository.save(mapper.toEntity(entry));
+    }
+
+    @Override
+    public Optional<LedgerEntry> findByCorrelationIdAndEntryType(
+            UUID correlationId,
+            LedgerEntryType entryType) {
+        return repository.findByCorrelationIdAndEntryType(
+                correlationId,
+                entryType)
+                .map(mapper::toDomain);
     }
 }

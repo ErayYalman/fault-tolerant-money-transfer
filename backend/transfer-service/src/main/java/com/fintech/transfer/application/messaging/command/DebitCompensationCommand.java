@@ -36,6 +36,8 @@ public record DebitCompensationCommand(
         }
     }
 
+    private static final String COMPENSATION_REASON = "CREDIT_FAILED";
+
     public static DebitCompensationCommand from(Transfer transfer) {
         return new DebitCompensationCommand(
                 UUID.randomUUID(),
@@ -45,7 +47,7 @@ public record DebitCompensationCommand(
                 transfer.getFromAccountId(),
                 transfer.getMoney().amount(),
                 transfer.getMoney().currency(),
-                transfer.getFailureReason()
+                COMPENSATION_REASON
         );
     }
 

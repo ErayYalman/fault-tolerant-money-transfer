@@ -1,7 +1,11 @@
 package com.fintech.payment.a.application.service;
 
-import com.fintech.payment.a.application.exception.IdempotencyConflictException;
-import com.fintech.payment.a.application.messaging.command.DebitRequestedCommand;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,292 +18,352 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.math.BigDecimal;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.fintech.payment.a.application.exception.CompensationInvariantViolationException;
+import com.fintech.payment.a.application.messaging.command.DebitCompensationCommand;
+import com.fintech.payment.a.application.messaging.command.DebitRequestedCommand;
 
 @Testcontainers
 @SpringBootTest(properties = {
-        "app.kafka.enabled=false",
-        "app.outbox.relay.enabled=false"
+                "app.kafka.enabled=false",
+                "app.outbox.relay.enabled=false"
 })
-@AutoConfigureTestDatabase(
-        replace = AutoConfigureTestDatabase.Replace.NONE
-)
-class DebitCommandHandlingIntegrationTest {
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+class DebitCompensationHandlingIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("payment_a_test_db")
-                    .withUsername("payment_a_test_user")
-                    .withPassword("payment_a_test_password");
+        @SuppressWarnings("resource")
+        @Container
+        static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("payment_a_compensation_test_db")
+                        .withUsername("payment_a_test_user")
+                        .withPassword("payment_a_test_password");
 
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-    }
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private DebitCommandHandlingService handlingService;
-
-    @BeforeEach
-    void cleanDatabase() {
-        jdbcTemplate.update("DELETE FROM inbox_messages");
-        jdbcTemplate.update("DELETE FROM ledger_entries");
-        jdbcTemplate.update("DELETE FROM outbox_events");
-        jdbcTemplate.update("DELETE FROM accounts");
-    }
-
-    @Test
-    void shouldDebitAndPersistLedgerAndOutboxAtomically() {
-        UUID accountId = createAccount("100.00");
-        DebitRequestedCommand command = command(
-                accountId,
-                new BigDecimal("25.00")
-        );
-
-        DebitCommandHandlingService.Result result =
-                handlingService.handle(command);
-
-        assertThat(result)
-                .isEqualTo(DebitCommandHandlingService.Result.PROCESSED);
-
-        assertThat(balance(accountId))
-                .isEqualByComparingTo("75.00");
-
-        assertThat(count("ledger_entries"))
-                .isEqualTo(1);
-
-        assertThat(count("inbox_messages"))
-                .isEqualTo(1);
-
-        assertThat(countOutbox("debit-completed"))
-                .isEqualTo(1);
-
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT status FROM outbox_events WHERE event_type = 'debit-completed'",
-                String.class
-        )).isEqualTo("PENDING");
-
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT payload ->> 'correlationId' " +
-                        "FROM outbox_events WHERE event_type = 'debit-completed'",
-                String.class
-        )).isEqualTo(command.correlationId().toString());
-    }
-
-    @Test
-    void shouldNotApplySameLogicalDebitTwice() {
-        UUID accountId = createAccount("100.00");
-
-        DebitRequestedCommand first = command(
-                accountId,
-                new BigDecimal("25.00")
-        );
-
-        // Aynı mantıksal işlem, farklı Kafka messageId ve idempotencyKey.
-        DebitRequestedCommand duplicate = new DebitRequestedCommand(
-                UUID.randomUUID(),
-                first.correlationId(),
-                first.transferId(),
-                "retry-key-" + UUID.randomUUID(),
-                first.accountId(),
-                first.amount(),
-                first.currency()
-        );
-
-        assertThat(handlingService.handle(first))
-                .isEqualTo(DebitCommandHandlingService.Result.PROCESSED);
-
-        assertThat(handlingService.handle(duplicate))
-                .isEqualTo(DebitCommandHandlingService.Result.DUPLICATE);
-
-        assertThat(balance(accountId))
-                .isEqualByComparingTo("75.00");
-        assertThat(count("ledger_entries")).isEqualTo(1);
-        assertThat(countOutbox("debit-completed")).isEqualTo(1);
-        assertThat(count("inbox_messages")).isEqualTo(1);
-    }
-
-    @Test
-    void shouldPersistFailureEventWhenBalanceIsInsufficient() {
-        UUID accountId = createAccount("10.00");
-        DebitRequestedCommand command = command(
-                accountId,
-                new BigDecimal("20.00")
-        );
-
-        assertThat(handlingService.handle(command))
-                .isEqualTo(
-                        DebitCommandHandlingService.Result.BUSINESS_FAILURE
-                );
-
-        assertThat(balance(accountId))
-                .isEqualByComparingTo("10.00");
-
-        assertThat(count("ledger_entries")).isZero();
-        assertThat(countOutbox("debit-completed")).isZero();
-        assertThat(countOutbox("debit-failed")).isEqualTo(1);
-
-        assertThat(jdbcTemplate.queryForObject(
-                "SELECT payload ->> 'failureReason' " +
-                        "FROM outbox_events WHERE event_type = 'debit-failed'",
-                String.class
-        )).isEqualTo("INSUFFICIENT_FUNDS");
-
-        // Başarısız iş sonucu da Inbox'a kaydedildiği için yeniden işlenmez.
-        assertThat(handlingService.handle(command))
-                .isEqualTo(DebitCommandHandlingService.Result.DUPLICATE);
-
-        assertThat(countOutbox("debit-failed")).isEqualTo(1);
-        assertThat(count("ledger_entries")).isZero();
-    }
-
-    @Test
-    void shouldRejectSameLogicalCommandWithDifferentPayload() {
-        UUID accountId = createAccount("100.00");
-        DebitRequestedCommand original = command(
-                accountId,
-                new BigDecimal("25.00")
-        );
-
-        DebitRequestedCommand conflicting = new DebitRequestedCommand(
-                UUID.randomUUID(),
-                original.correlationId(),
-                original.transferId(),
-                "conflicting-key-" + UUID.randomUUID(),
-                original.accountId(),
-                new BigDecimal("35.00"),
-                original.currency()
-        );
-
-        assertThat(handlingService.handle(original))
-                .isEqualTo(DebitCommandHandlingService.Result.PROCESSED);
-
-        assertThatThrownBy(() -> handlingService.handle(conflicting))
-                .isInstanceOf(IdempotencyConflictException.class);
-
-        assertThat(balance(accountId))
-                .isEqualByComparingTo("75.00");
-        assertThat(count("ledger_entries")).isEqualTo(1);
-        assertThat(countOutbox("debit-completed")).isEqualTo(1);
-    }
-
-    @Test
-    void shouldRollbackInboxBalanceAndLedgerWhenOutboxInsertFails() {
-        UUID accountId = createAccount("100.00");
-        DebitRequestedCommand command = command(
-                accountId,
-                new BigDecimal("25.00")
-        );
-
-        jdbcTemplate.execute("""
-                CREATE OR REPLACE FUNCTION reject_debit_completed_outbox()
-                RETURNS trigger AS $$
-                BEGIN
-                    IF NEW.event_type = 'debit-completed' THEN
-                        RAISE EXCEPTION 'forced Outbox insert failure';
-                    END IF;
-                    RETURN NEW;
-                END;
-                $$ LANGUAGE plpgsql
-                """);
-
-        jdbcTemplate.execute("""
-                CREATE TRIGGER trg_reject_debit_completed_outbox
-                BEFORE INSERT ON outbox_events
-                FOR EACH ROW
-                EXECUTE FUNCTION reject_debit_completed_outbox()
-                """);
-
-        try {
-            assertThatThrownBy(() -> handlingService.handle(command))
-                    .isInstanceOf(RuntimeException.class);
-        } finally {
-            jdbcTemplate.execute("""
-                    DROP TRIGGER IF EXISTS trg_reject_debit_completed_outbox
-                    ON outbox_events
-                    """);
-            jdbcTemplate.execute("""
-                    DROP FUNCTION IF EXISTS reject_debit_completed_outbox()
-                    """);
+        @DynamicPropertySource
+        static void registerProperties(DynamicPropertyRegistry registry) {
+                registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+                registry.add("spring.datasource.username", POSTGRES::getUsername);
+                registry.add("spring.datasource.password", POSTGRES::getPassword);
         }
 
-        assertThat(balance(accountId))
-                .isEqualByComparingTo("100.00");
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
 
-        assertThat(count("inbox_messages")).isZero();
-        assertThat(count("ledger_entries")).isZero();
-        assertThat(count("outbox_events")).isZero();
-    }
+        @Autowired
+        private DebitCommandHandlingService debitHandlingService;
 
-    private UUID createAccount(String initialBalance) {
-        UUID accountId = UUID.randomUUID();
+        @Autowired
+        private DebitCompensationHandlingService compensationHandlingService;
 
-        jdbcTemplate.update("""
-                INSERT INTO accounts (
-                    id,
-                    account_number,
-                    balance,
-                    currency,
-                    status,
-                    version,
-                    updated_at
-                )
-                VALUES (?, ?, ?, 'TRY', 'ACTIVE', 0, NOW())
-                """,
-                accountId,
-                "TEST-" + UUID.randomUUID(),
-                new BigDecimal(initialBalance)
-        );
+        @BeforeEach
+        void cleanDatabase() {
+                dropFailureTrigger();
 
-        return accountId;
-    }
+                jdbcTemplate.update("DELETE FROM inbox_messages");
+                jdbcTemplate.update("DELETE FROM ledger_entries");
+                jdbcTemplate.update("DELETE FROM outbox_events");
+                jdbcTemplate.update("DELETE FROM accounts");
+        }
 
-    private DebitRequestedCommand command(
-            UUID accountId,
-            BigDecimal amount
-    ) {
-        return new DebitRequestedCommand(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                "debit-" + UUID.randomUUID(),
-                accountId,
-                amount,
-                "TRY"
-        );
-    }
+        @Test
+        void shouldReverseSuccessfulDebitAndPublishCompensatedEvent() {
+                UUID accountId = createAccount("100.00");
+                DebitRequestedCommand debitCommand = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"));
 
-    private BigDecimal balance(UUID accountId) {
-        return jdbcTemplate.queryForObject(
-                "SELECT balance FROM accounts WHERE id = ?",
-                BigDecimal.class,
-                accountId
-        );
-    }
+                assertThat(debitHandlingService.handle(debitCommand))
+                                .isEqualTo(DebitCommandHandlingService.Result.PROCESSED);
 
-    private long count(String table) {
-        return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM " + table,
-                Long.class
-        );
-    }
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("75.00");
 
-    private long countOutbox(String eventType) {
-        return jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM outbox_events WHERE event_type = ?",
-                Long.class,
-                eventType
-        );
-    }
+                DebitCompensationCommand compensationCommand = compensationCommand(debitCommand);
+
+                assertThat(compensationHandlingService.handle(compensationCommand))
+                                .isEqualTo(
+                                                DebitCompensationHandlingService.Result.PROCESSED);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("100.00");
+
+                assertThat(count("ledger_entries")).isEqualTo(2L);
+                assertThat(count("inbox_messages")).isEqualTo(2L);
+
+                assertThat(countOutbox("debit-completed")).isEqualTo(1L);
+                assertThat(countOutbox("debit-compensated")).isEqualTo(1L);
+
+                assertThat(ledgerBalance("REVERSAL", "balance_before"))
+                                .isEqualByComparingTo("75.00");
+
+                assertThat(ledgerBalance("REVERSAL", "balance_after"))
+                                .isEqualByComparingTo("100.00");
+
+                String reversalLedgerEntryId = jdbcTemplate.queryForObject(
+                                """
+                                                SELECT payload ->> 'reversalLedgerEntryId'
+                                                FROM outbox_events
+                                                WHERE event_type = 'debit-compensated'
+                                                """,
+                                String.class);
+
+                assertThat(reversalLedgerEntryId).isNotBlank();
+
+                assertThat(jdbcTemplate.queryForObject(
+                                """
+                                                SELECT id::text
+                                                FROM ledger_entries
+                                                WHERE entry_type = 'REVERSAL'
+                                                """,
+                                String.class)).isEqualTo(reversalLedgerEntryId);
+        }
+
+        @Test
+        void shouldNotCreateSecondReversalForDuplicateCompensation() {
+                UUID accountId = createAccount("100.00");
+                DebitRequestedCommand debitCommand = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"));
+
+                debitHandlingService.handle(debitCommand);
+
+                DebitCompensationCommand first = compensationCommand(debitCommand);
+
+                DebitCompensationCommand duplicate = new DebitCompensationCommand(
+                                UUID.randomUUID(),
+                                first.correlationId(),
+                                first.transferId(),
+                                "compensation-retry-" + UUID.randomUUID(),
+                                first.accountId(),
+                                first.amount(),
+                                first.currency(),
+                                first.reason());
+
+                assertThat(compensationHandlingService.handle(first))
+                                .isEqualTo(
+                                                DebitCompensationHandlingService.Result.PROCESSED);
+
+                assertThat(compensationHandlingService.handle(duplicate))
+                                .isEqualTo(
+                                                DebitCompensationHandlingService.Result.DUPLICATE);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("100.00");
+
+                assertThat(count("ledger_entries")).isEqualTo(2L);
+                assertThat(countInboxCommand("debit-compensate")).isEqualTo(1L);
+                assertThat(countOutbox("debit-compensated")).isEqualTo(1L);
+        }
+
+        @Test
+        void shouldRejectCompensationThatDoesNotMatchOriginalDebit() {
+                UUID accountId = createAccount("100.00");
+                DebitRequestedCommand debitCommand = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"));
+
+                debitHandlingService.handle(debitCommand);
+
+                DebitCompensationCommand invalidCommand = new DebitCompensationCommand(
+                                UUID.randomUUID(),
+                                debitCommand.correlationId(),
+                                debitCommand.transferId(),
+                                "compensation-invalid-" + UUID.randomUUID(),
+                                accountId,
+                                new BigDecimal("30.00"),
+                                debitCommand.currency(),
+                                "CREDIT_FAILED");
+
+                assertThatThrownBy(
+                                () -> compensationHandlingService.handle(invalidCommand))
+                                .isInstanceOf(CompensationInvariantViolationException.class);
+
+                // Orijinal debit durur; hatalı compensation hiçbir etki yaratmaz.
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("75.00");
+
+                assertThat(count("ledger_entries")).isEqualTo(1L);
+                assertThat(countInboxCommand("debit-compensate")).isZero();
+                assertThat(countOutbox("debit-compensated")).isZero();
+        }
+
+        @Test
+        void shouldRejectCompensationWhenOriginalDebitDoesNotExist() {
+                UUID accountId = createAccount("100.00");
+
+                DebitCompensationCommand command = new DebitCompensationCommand(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                "compensation-without-debit-" + UUID.randomUUID(),
+                                accountId,
+                                new BigDecimal("25.00"),
+                                "TRY",
+                                "CREDIT_FAILED");
+
+                assertThatThrownBy(
+                                () -> compensationHandlingService.handle(command))
+                                .isInstanceOf(CompensationInvariantViolationException.class);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("100.00");
+
+                assertThat(count("inbox_messages")).isZero();
+                assertThat(count("ledger_entries")).isZero();
+                assertThat(count("outbox_events")).isZero();
+        }
+
+        @Test
+        void shouldRollbackReversalWhenOutboxInsertFails() {
+                UUID accountId = createAccount("100.00");
+                DebitRequestedCommand debitCommand = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"));
+
+                debitHandlingService.handle(debitCommand);
+
+                installFailureTrigger();
+
+                try {
+                        assertThatThrownBy(
+                                        () -> compensationHandlingService.handle(
+                                                        compensationCommand(debitCommand)))
+                                        .isInstanceOf(RuntimeException.class);
+                } finally {
+                        dropFailureTrigger();
+                }
+
+                // Debit daha önce commit edilmişti; başarısız reversal geri alınmalı.
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("75.00");
+
+                assertThat(count("ledger_entries")).isEqualTo(1L);
+                assertThat(countInboxCommand("debit-requested")).isEqualTo(1L);
+                assertThat(countInboxCommand("debit-compensate")).isZero();
+
+                assertThat(countOutbox("debit-completed")).isEqualTo(1L);
+                assertThat(countOutbox("debit-compensated")).isZero();
+        }
+
+        private UUID createAccount(String initialBalance) {
+                UUID accountId = UUID.randomUUID();
+
+                jdbcTemplate.update(
+                                """
+                                                INSERT INTO accounts (
+                                                    id,
+                                                    account_number,
+                                                    balance,
+                                                    currency,
+                                                    status,
+                                                    version,
+                                                    updated_at
+                                                )
+                                                VALUES (?, ?, ?, 'TRY', 'ACTIVE', 0, NOW())
+                                                """,
+                                accountId,
+                                "TEST-" + UUID.randomUUID(),
+                                new BigDecimal(initialBalance));
+
+                return accountId;
+        }
+
+        private DebitRequestedCommand debitCommand(
+                        UUID accountId,
+                        BigDecimal amount) {
+                return new DebitRequestedCommand(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                "debit-" + UUID.randomUUID(),
+                                accountId,
+                                amount,
+                                "TRY");
+        }
+
+        private DebitCompensationCommand compensationCommand(
+                        DebitRequestedCommand debit) {
+                return new DebitCompensationCommand(
+                                UUID.randomUUID(),
+                                debit.correlationId(),
+                                debit.transferId(),
+                                "compensation-" + UUID.randomUUID(),
+                                debit.accountId(),
+                                debit.amount(),
+                                debit.currency(),
+                                "CREDIT_FAILED");
+        }
+
+        private BigDecimal balance(UUID accountId) {
+                return jdbcTemplate.queryForObject(
+                                "SELECT balance FROM accounts WHERE id = ?",
+                                BigDecimal.class,
+                                accountId);
+        }
+
+        private long count(String table) {
+                return jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM " + table,
+                                Long.class);
+        }
+
+        private long countInboxCommand(String commandType) {
+                return jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM inbox_messages WHERE command_type = ?",
+                                Long.class,
+                                commandType);
+        }
+
+        private long countOutbox(String eventType) {
+                return jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM outbox_events WHERE event_type = ?",
+                                Long.class,
+                                eventType);
+        }
+
+        private BigDecimal ledgerBalance(
+                        String entryType,
+                        String columnName) {
+                if (!"balance_before".equals(columnName)
+                                && !"balance_after".equals(columnName)) {
+                        throw new IllegalArgumentException(
+                                        "Unsupported ledger balance column");
+                }
+
+                return jdbcTemplate.queryForObject(
+                                "SELECT " + columnName +
+                                                " FROM ledger_entries WHERE entry_type = ?",
+                                BigDecimal.class,
+                                entryType);
+        }
+
+        private void installFailureTrigger() {
+                jdbcTemplate.execute("""
+                                CREATE OR REPLACE FUNCTION reject_debit_compensated_outbox()
+                                RETURNS TRIGGER AS $$
+                                BEGIN
+                                    IF NEW.event_type = 'debit-compensated' THEN
+                                        RAISE EXCEPTION 'Forced compensation Outbox failure';
+                                    END IF;
+                                    RETURN NEW;
+                                END;
+                                $$ LANGUAGE plpgsql
+                                """);
+
+                jdbcTemplate.execute("""
+                                CREATE TRIGGER trg_reject_debit_compensated_outbox
+                                BEFORE INSERT ON outbox_events
+                                FOR EACH ROW
+                                EXECUTE FUNCTION reject_debit_compensated_outbox()
+                                """);
+        }
+
+        private void dropFailureTrigger() {
+                jdbcTemplate.execute("""
+                                DROP TRIGGER IF EXISTS trg_reject_debit_compensated_outbox
+                                ON outbox_events
+                                """);
+
+                jdbcTemplate.execute("""
+                                DROP FUNCTION IF EXISTS reject_debit_compensated_outbox()
+                                """);
+        }
 }
