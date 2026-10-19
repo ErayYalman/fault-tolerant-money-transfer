@@ -19,6 +19,7 @@ public record CreditRequestedCommand(
     public CreditRequestedCommand {
         Objects.requireNonNull(messageId);
         Objects.requireNonNull(correlationId);
+        Objects.requireNonNull(transferId);
         Objects.requireNonNull(idempotencyKey);
         Objects.requireNonNull(accountId);
         Objects.requireNonNull(amount);

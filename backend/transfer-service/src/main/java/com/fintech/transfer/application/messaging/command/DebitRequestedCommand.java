@@ -14,16 +14,20 @@ public record DebitRequestedCommand(
         String idempotencyKey,
         UUID accountId,
         BigDecimal amount,
-        String currency
-) {
+        String currency) {
 
     public DebitRequestedCommand {
         Objects.requireNonNull(messageId);
         Objects.requireNonNull(correlationId);
+        Objects.requireNonNull(transferId);
         Objects.requireNonNull(idempotencyKey);
         Objects.requireNonNull(accountId);
         Objects.requireNonNull(amount);
         Objects.requireNonNull(currency);
+        
+        if (amount.signum() <= 0) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
     }
 
     public static DebitRequestedCommand from(Transfer transfer) {
@@ -34,8 +38,7 @@ public record DebitRequestedCommand(
                 UUID.randomUUID().toString(),
                 transfer.getFromAccountId(),
                 transfer.getMoney().amount(),
-                transfer.getMoney().currency()
-        );
+                transfer.getMoney().currency());
     }
 
     public Map<String, Object> toPayload() {
@@ -46,7 +49,6 @@ public record DebitRequestedCommand(
                 "idempotencyKey", idempotencyKey,
                 "accountId", accountId.toString(),
                 "amount", amount,
-                "currency", currency
-        );
+                "currency", currency);
     }
 }

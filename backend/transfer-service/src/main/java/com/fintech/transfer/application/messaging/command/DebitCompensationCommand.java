@@ -20,6 +20,7 @@ public record DebitCompensationCommand(
     public DebitCompensationCommand {
         Objects.requireNonNull(messageId);
         Objects.requireNonNull(correlationId);
+        Objects.requireNonNull(transferId);
         Objects.requireNonNull(idempotencyKey);
         Objects.requireNonNull(accountId);
         Objects.requireNonNull(amount);
