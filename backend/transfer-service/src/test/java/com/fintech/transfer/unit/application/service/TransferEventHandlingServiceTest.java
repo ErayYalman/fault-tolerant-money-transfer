@@ -105,6 +105,9 @@ class TransferEventHandlingServiceTest {
 
         assertThat(message.payload())
                 .containsEntry(
+                        "transferId",
+                        transfer.getId().toString())
+                .containsEntry(
                         "correlationId",
                         correlationId.toString())
                 .containsEntry(

@@ -10,6 +10,7 @@ import java.util.UUID;
 public record CreditRequestedCommand(
         UUID messageId,
         UUID correlationId,
+        UUID transferId,
         String idempotencyKey,
         UUID accountId,
         BigDecimal amount,
@@ -32,6 +33,7 @@ public record CreditRequestedCommand(
         return new CreditRequestedCommand(
                 UUID.randomUUID(),
                 transfer.getCorrelationId(),
+                transfer.getId(),
                 UUID.randomUUID().toString(),
                 transfer.getToAccountId(),
                 transfer.getMoney().amount(),
@@ -43,6 +45,7 @@ public record CreditRequestedCommand(
         return Map.of(
                 "messageId", messageId.toString(),
                 "correlationId", correlationId.toString(),
+                "transferId", transferId.toString(),
                 "idempotencyKey", idempotencyKey,
                 "accountId", accountId.toString(),
                 "amount", amount,
