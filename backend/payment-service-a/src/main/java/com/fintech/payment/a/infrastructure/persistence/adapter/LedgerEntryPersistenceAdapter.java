@@ -1,8 +1,11 @@
 package com.fintech.payment.a.infrastructure.persistence.adapter;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,5 +43,21 @@ public class LedgerEntryPersistenceAdapter implements LedgerEntryRepository {
                 correlationId,
                 entryType)
                 .map(mapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LedgerEntry> findByCreatedAtRange(
+            Instant fromInclusive,
+            Instant toExclusive,
+            int page,
+            int size) {
+        return repository
+                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                        fromInclusive,
+                        toExclusive,
+                        PageRequest.of(page, size))
+                .map(mapper::toDomain)
+                .getContent();
     }
 }
