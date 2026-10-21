@@ -37,3 +37,10 @@ management:
     health:
       probes:
         enabled: true
+
+reconciliation:
+  clients:
+    transfer-base-url: ${TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
+    payment-a-base-url: ${PAYMENT_A_SERVICE_BASE_URL:http://localhost:8081}
+    payment-b-base-url: ${PAYMENT_B_SERVICE_BASE_URL:http://localhost:8082}
+    page-size: ${RECONCILIATION_CLIENT_PAGE_SIZE:500}
