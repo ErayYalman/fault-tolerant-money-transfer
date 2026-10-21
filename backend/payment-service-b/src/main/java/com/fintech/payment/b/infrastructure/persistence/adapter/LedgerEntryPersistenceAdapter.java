@@ -1,5 +1,7 @@
 package com.fintech.payment.b.infrastructure.persistence.adapter;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 import com.fintech.payment.b.domain.model.LedgerEntry;
@@ -27,5 +29,22 @@ public class LedgerEntryPersistenceAdapter implements LedgerEntryRepository {
         Objects.requireNonNull(entry, "entry must not be null");
 
         repository.persist(mapper.toEntity(entry));
+    }
+
+    @Override
+    public List<LedgerEntry> findByCreatedAtRange(
+            Instant fromInclusive,
+            Instant toExclusive,
+            int page,
+            int size) {
+
+        return repository.findByCreatedAtRange(
+                fromInclusive,
+                toExclusive,
+                page,
+                size)
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 }
