@@ -39,6 +39,7 @@ management:
         enabled: true
 
 reconciliation:
+  time-zone: ${RECONCILIATION_TIME_ZONE:Europe/Istanbul}
   clients:
     transfer-base-url: ${TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
     payment-a-base-url: ${PAYMENT_A_SERVICE_BASE_URL:http://localhost:8081}
