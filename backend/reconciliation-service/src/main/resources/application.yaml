@@ -5,6 +5,12 @@ spring:
   application:
     name: reconciliation-service
 
+  # Timeout ayarları artık güvenli bir şekilde global konfigürasyonda
+  http:
+    client:
+      connect-timeout: 2s
+      read-timeout: 5s
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_RECONCILIATION_HOST:localhost}:${POSTGRES_RECONCILIATION_PORT:5435}/${POSTGRES_RECONCILIATION_DB}
     username: ${POSTGRES_RECONCILIATION_USER}
