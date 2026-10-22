@@ -6,7 +6,7 @@ import java.util.Objects;
 public record ReconciliationAnalysisResult(
         int transfersChecked,
         List<ReconciliationDiscrepancy> discrepancies,
-        List<AnomalyScoreRecord> anomalyScores) {
+        AnomalyScoringResult anomalyScoringResult) {
 
     public ReconciliationAnalysisResult {
         if (transfersChecked < 0) {
@@ -19,17 +19,35 @@ public record ReconciliationAnalysisResult(
                         discrepancies,
                         "discrepancies must not be null"));
 
-        anomalyScores = List.copyOf(
-                Objects.requireNonNull(
-                        anomalyScores,
-                        "anomalyScores must not be null"));
+        Objects.requireNonNull(
+                anomalyScoringResult,
+                "anomalyScoringResult must not be null");
     }
 
-    // Keeps existing tests/call sites that do not supply ML results compatible.
     public ReconciliationAnalysisResult(
             int transfersChecked,
             List<ReconciliationDiscrepancy> discrepancies) {
-        this(transfersChecked, discrepancies, List.of());
+
+        this(
+                transfersChecked,
+                discrepancies,
+                AnomalyScoringResult.notRequired());
+    }
+
+    // Existing callers that supply only scores remain compatible.
+    public ReconciliationAnalysisResult(
+            int transfersChecked,
+            List<ReconciliationDiscrepancy> discrepancies,
+            List<AnomalyScoreRecord> anomalyScores) {
+
+        this(
+                transfersChecked,
+                discrepancies,
+                AnomalyScoringResult.fromSuccessfulScores(anomalyScores));
+    }
+
+    public List<AnomalyScoreRecord> anomalyScores() {
+        return anomalyScoringResult.scores();
     }
 
     public int discrepanciesFound() {
@@ -37,7 +55,7 @@ public record ReconciliationAnalysisResult(
     }
 
     public int anomaliesFound() {
-        return Math.toIntExact(anomalyScores.stream()
+        return Math.toIntExact(anomalyScoringResult.scores().stream()
                 .filter(AnomalyScoreRecord::isAnomaly)
                 .count());
     }

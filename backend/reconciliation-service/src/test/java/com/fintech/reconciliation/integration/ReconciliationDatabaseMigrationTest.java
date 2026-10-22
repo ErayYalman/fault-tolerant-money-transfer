@@ -69,4 +69,22 @@ class ReconciliationDatabaseMigrationTest {
                                 "idx_anomaly_scores_run_id",
                                 "idx_anomaly_scores_correlation_id");
         }
+
+        @Test
+        void shouldCreateAnomalyScoringStatusColumns() {
+                List<String> columns = jdbcTemplate.queryForList(
+                                """
+                                                SELECT column_name
+                                                FROM information_schema.columns
+                                                WHERE table_schema = 'public'
+                                                  AND table_name = 'reconciliation_runs'
+                                                """,
+                                String.class);
+
+                assertThat(columns).contains(
+                                "anomaly_scoring_status",
+                                "anomaly_scoring_attempted_count",
+                                "anomaly_scoring_failed_count",
+                                "anomaly_scoring_error_message");
+        }
 }

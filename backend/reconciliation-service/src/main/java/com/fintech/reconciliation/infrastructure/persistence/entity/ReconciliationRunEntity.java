@@ -4,8 +4,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import com.fintech.reconciliation.domain.model.AnomalyScoringResult;
+import com.fintech.reconciliation.domain.model.AnomalyScoringStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -40,6 +45,19 @@ public class ReconciliationRunEntity {
     @Column(name = "anomalies_found", nullable = false)
     private int anomaliesFound;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "anomaly_scoring_status", nullable = false, length = 20)
+    private AnomalyScoringStatus anomalyScoringStatus;
+
+    @Column(name = "anomaly_scoring_attempted_count", nullable = false)
+    private int anomalyScoringAttemptedCount;
+
+    @Column(name = "anomaly_scoring_failed_count", nullable = false)
+    private int anomalyScoringFailedCount;
+
+    @Column(name = "anomaly_scoring_error_message", columnDefinition = "TEXT")
+    private String anomalyScoringErrorMessage;
+
     @Column(name = "started_at", nullable = false)
     private Instant startedAt;
 
@@ -73,6 +91,9 @@ public class ReconciliationRunEntity {
         run.transfersChecked = 0;
         run.discrepanciesFound = 0;
         run.anomaliesFound = 0;
+        run.anomalyScoringStatus = AnomalyScoringStatus.NOT_RUN;
+        run.anomalyScoringAttemptedCount = 0;
+        run.anomalyScoringFailedCount = 0;
         run.startedAt = now;
         run.createdAt = now;
 
@@ -83,12 +104,19 @@ public class ReconciliationRunEntity {
             int transfersChecked,
             int discrepanciesFound,
             int anomaliesFound,
+            AnomalyScoringResult anomalyScoringResult,
             Instant finishedAt) {
 
         this.status = "COMPLETED";
         this.transfersChecked = transfersChecked;
         this.discrepanciesFound = discrepanciesFound;
         this.anomaliesFound = anomaliesFound;
+
+        this.anomalyScoringStatus = anomalyScoringResult.status();
+        this.anomalyScoringAttemptedCount = anomalyScoringResult.attemptedCount();
+        this.anomalyScoringFailedCount = anomalyScoringResult.failedCount();
+        this.anomalyScoringErrorMessage = anomalyScoringResult.errorMessage();
+
         this.finishedAt = finishedAt;
         this.errorMessage = null;
     }
@@ -133,6 +161,22 @@ public class ReconciliationRunEntity {
 
     public int getAnomaliesFound() {
         return anomaliesFound;
+    }
+
+    public AnomalyScoringStatus getAnomalyScoringStatus() {
+        return anomalyScoringStatus;
+    }
+
+    public int getAnomalyScoringAttemptedCount() {
+        return anomalyScoringAttemptedCount;
+    }
+
+    public int getAnomalyScoringFailedCount() {
+        return anomalyScoringFailedCount;
+    }
+
+    public String getAnomalyScoringErrorMessage() {
+        return anomalyScoringErrorMessage;
     }
 
     public Instant getStartedAt() {

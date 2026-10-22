@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
+import com.fintech.reconciliation.domain.model.AnomalyScoringResult;
 import com.fintech.reconciliation.domain.model.LedgerEntryRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationAnalysisResult;
 import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancy;
@@ -66,7 +66,7 @@ public class ReconciliationAnalysisService {
                                 bankAEntries,
                                 bankBEntries);
 
-                List<AnomalyScoreRecord> anomalyScores = anomalyScoringService.scoreEligibleTransfers(
+                AnomalyScoringResult anomalyScoringResult = anomalyScoringService.scoreEligibleTransfers(
                                 transfers,
                                 bankAEntries,
                                 Instant.now());
@@ -74,6 +74,6 @@ public class ReconciliationAnalysisService {
                 return new ReconciliationAnalysisResult(
                                 transfers.size(),
                                 discrepancies,
-                                anomalyScores);
+                                anomalyScoringResult);
         }
 }

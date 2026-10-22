@@ -84,6 +84,7 @@ public class ReconciliationRunPersistenceAdapter
                                 result.transfersChecked(),
                                 result.discrepanciesFound(),
                                 result.anomaliesFound(),
+                                result.anomalyScoringResult(),
                                 now);
 
                 runRepository.save(run);
@@ -161,6 +162,10 @@ public class ReconciliationRunPersistenceAdapter
                                 entity.getTransfersChecked(),
                                 entity.getDiscrepanciesFound(),
                                 entity.getAnomaliesFound(),
+                                entity.getAnomalyScoringStatus(),
+                                entity.getAnomalyScoringAttemptedCount(),
+                                entity.getAnomalyScoringFailedCount(),
+                                entity.getAnomalyScoringErrorMessage(),
                                 entity.getStartedAt(),
                                 entity.getFinishedAt(),
                                 entity.getErrorMessage());

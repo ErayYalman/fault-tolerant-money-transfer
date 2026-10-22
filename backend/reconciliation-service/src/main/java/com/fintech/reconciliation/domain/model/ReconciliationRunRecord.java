@@ -5,16 +5,20 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record ReconciliationRunRecord(
-        UUID runId,
-        LocalDate businessDate,
-        Instant periodStart,
-        Instant periodEnd,
-        String runType,
-        String status,
-        int transfersChecked,
-        int discrepanciesFound,
-        int anomaliesFound,
-        Instant startedAt,
-        Instant finishedAt,
-        String errorMessage) {
+                UUID runId,
+                LocalDate businessDate,
+                Instant periodStart,
+                Instant periodEnd,
+                String runType,
+                String status,
+                int transfersChecked,
+                int discrepanciesFound,
+                int anomaliesFound,
+                AnomalyScoringStatus anomalyScoringStatus,
+                int anomalyScoringAttemptedCount,
+                int anomalyScoringFailedCount,
+                String anomalyScoringErrorMessage,
+                Instant startedAt,
+                Instant finishedAt,
+                String errorMessage) {
 }

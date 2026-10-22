@@ -96,7 +96,7 @@ class ReconciliationMlFailureIntegrationTest {
     }
 
     @Test
-    void shouldPersistFailedRunWhenMlScoringIsUnavailable()
+    void shouldCompleteReconciliationAndReportMlUnavailableWhenScoringIsUnavailable()
             throws Exception {
 
         TransferRecord transfer = new TransferRecord(
@@ -164,10 +164,16 @@ class ReconciliationMlFailureIntegrationTest {
                 String.class);
 
         assertThat(response.getStatusCode())
-                .isEqualTo(HttpStatus.BAD_GATEWAY);
+                .isEqualTo(HttpStatus.OK);
 
-        JsonNode error = objectMapper.readTree(response.getBody());
-        UUID runId = UUID.fromString(error.path("runId").asText());
+        JsonNode result = objectMapper.readTree(response.getBody());
+        UUID runId = UUID.fromString(result.path("runId").asText());
+
+        assertThat(result.path("status").asText())
+                .isEqualTo("COMPLETED");
+
+        assertThat(result.path("transfersChecked").asInt())
+                .isEqualTo(1);
 
         ResponseEntity<String> detailsResponse = restTemplate.getForEntity(
                 baseUrl() + "/api/v1/reconciliation/runs/" + runId,
@@ -179,17 +185,44 @@ class ReconciliationMlFailureIntegrationTest {
         JsonNode details = objectMapper.readTree(detailsResponse.getBody());
 
         assertThat(details.path("status").asText())
-                .isEqualTo("FAILED");
+                .isEqualTo("COMPLETED");
 
-        assertThat(details.path("errorMessage").asText())
-                .contains("ML service unavailable");
+        assertThat(details.path("errorMessage").isNull())
+                .isTrue();
+
+        assertThat(details.at("/anomalySummary/status").asText())
+                .isEqualTo("UNAVAILABLE");
+
+        assertThat(details.at("/anomalySummary/attemptedCount").asInt())
+                .isEqualTo(1);
+
+        assertThat(details.at("/anomalySummary/failedCount").asInt())
+                .isEqualTo(1);
+
+        assertThat(details.at("/anomalySummary/scoredCount").asInt())
+                .isZero();
+
+        assertThat(details.at("/anomalySummary/errorMessage").asText())
+                .contains("ML scoring failed for 1 of 1 eligible transfer(s)");
 
         String persistedStatus = jdbcTemplate.queryForObject(
                 "SELECT status FROM reconciliation_runs WHERE id = ?",
                 String.class,
                 runId);
 
-        assertThat(persistedStatus).isEqualTo("FAILED");
+        String scoringStatus = jdbcTemplate.queryForObject(
+                "SELECT anomaly_scoring_status FROM reconciliation_runs WHERE id = ?",
+                String.class,
+                runId);
+
+        Integer failedCount = jdbcTemplate.queryForObject(
+                "SELECT anomaly_scoring_failed_count FROM reconciliation_runs WHERE id = ?",
+                Integer.class,
+                runId);
+
+        assertThat(persistedStatus).isEqualTo("COMPLETED");
+        assertThat(scoringStatus).isEqualTo("UNAVAILABLE");
+        assertThat(failedCount).isEqualTo(1);
 
         verify(anomalyScoringProvider)
                 .score(any(AnomalyFeatures.class));
