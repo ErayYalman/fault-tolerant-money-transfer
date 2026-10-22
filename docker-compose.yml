@@ -60,6 +60,28 @@ services:
     networks:
       - fintech-network
 
+  ml-anomaly-service:
+    build:
+      context: ./backend/ml-service
+    container_name: ml-anomaly-service
+    restart: unless-stopped
+    environment:
+      ML_MODEL_PATH: /app/model/isolation_forest.joblib
+      ML_TRAINING_ENDPOINT_ENABLED: ${ML_TRAINING_ENDPOINT_ENABLED:-false}
+    ports:
+      - "${ML_SERVICE_HOST_BIND:-127.0.0.1}:${ML_SERVICE_PORT:-8090}:8090"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2)"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - fintech-network
+
   kafka:
     image: apache/kafka:4.3.1
     container_name: kafka

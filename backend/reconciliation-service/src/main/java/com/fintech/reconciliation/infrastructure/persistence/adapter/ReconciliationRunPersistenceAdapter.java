@@ -23,151 +23,158 @@ import com.fintech.reconciliation.infrastructure.persistence.repository.Reconcil
 
 @Component
 public class ReconciliationRunPersistenceAdapter
-        implements ReconciliationRunStore {
+                implements ReconciliationRunStore {
 
-    private final ReconciliationRunRepository runRepository;
-    private final ReconciliationDiscrepancyRepository discrepancyRepository;
-    private final AnomalyScoreRepository anomalyScoreRepository;
+        private final ReconciliationRunRepository runRepository;
+        private final ReconciliationDiscrepancyRepository discrepancyRepository;
+        private final AnomalyScoreRepository anomalyScoreRepository;
 
-    public ReconciliationRunPersistenceAdapter(
-            ReconciliationRunRepository runRepository,
-            ReconciliationDiscrepancyRepository discrepancyRepository,
-            AnomalyScoreRepository anomalyScoreRepository) {
-        this.runRepository = runRepository;
-        this.discrepancyRepository = discrepancyRepository;
-        this.anomalyScoreRepository = anomalyScoreRepository;
-    }
-
-    @Override
-    @Transactional
-    public ReconciliationRunRecord startRun(
-            ReconciliationPeriod period,
-            String runType,
-            Instant now) {
-
-        ReconciliationRunEntity run = ReconciliationRunEntity.start(
-                period.businessDate(),
-                period.fromInclusive(),
-                period.toExclusive(),
-                runType,
-                now);
-
-        return toRecord(runRepository.save(run));
-    }
-
-    @Override
-    @Transactional
-    public void completeRun(
-            UUID runId,
-            ReconciliationAnalysisResult result,
-            Instant now) {
-
-        ReconciliationRunEntity run = runRepository.findById(runId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Reconciliation run not found: " + runId));
-
-        List<ReconciliationDiscrepancyEntity> discrepancies = result.discrepancies().stream()
-                .map(discrepancy -> ReconciliationDiscrepancyEntity.from(
-                        runId,
-                        discrepancy,
-                        now))
-                .toList();
-
-        discrepancyRepository.saveAll(discrepancies);
-
-        run.complete(
-                result.transfersChecked(),
-                result.discrepanciesFound(),
-                now);
-
-        runRepository.save(run);
-    }
-
-    @Override
-    @Transactional
-    public void failRun(
-            UUID runId,
-            String errorMessage,
-            Instant now) {
-
-        ReconciliationRunEntity run = runRepository.findById(runId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Reconciliation run not found: " + runId));
-
-        String message = errorMessage == null || errorMessage.isBlank()
-                ? "Reconciliation execution failed"
-                : errorMessage;
-
-        if (message.length() > 4000) {
-            message = message.substring(0, 4000);
+        public ReconciliationRunPersistenceAdapter(
+                        ReconciliationRunRepository runRepository,
+                        ReconciliationDiscrepancyRepository discrepancyRepository,
+                        AnomalyScoreRepository anomalyScoreRepository) {
+                this.runRepository = runRepository;
+                this.discrepancyRepository = discrepancyRepository;
+                this.anomalyScoreRepository = anomalyScoreRepository;
         }
 
-        run.fail(message, now);
-        runRepository.save(run);
-    }
+        @Override
+        @Transactional
+        public ReconciliationRunRecord startRun(
+                        ReconciliationPeriod period,
+                        String runType,
+                        Instant now) {
 
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<ReconciliationRunRecord> findById(UUID runId) {
-        return runRepository.findById(runId).map(
-                ReconciliationRunPersistenceAdapter::toRecord);
-    }
+                ReconciliationRunEntity run = ReconciliationRunEntity.start(
+                                period.businessDate(),
+                                period.fromInclusive(),
+                                period.toExclusive(),
+                                runType,
+                                now);
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<ReconciliationDiscrepancyRecord> findDiscrepancies(
-            UUID runId) {
+                return toRecord(runRepository.save(run));
+        }
 
-        return discrepancyRepository
-                .findByRunIdOrderByDetectedAtAsc(runId)
-                .stream()
-                .map(entity -> new ReconciliationDiscrepancyRecord(
-                        entity.getId(),
-                        entity.getTransferId(),
-                        entity.getCorrelationId(),
-                        entity.getRuleCode(),
-                        entity.getDetails(),
-                        entity.getDetectedAt()))
-                .toList();
-    }
+        @Override
+        @Transactional
+        public void completeRun(
+                        UUID runId,
+                        ReconciliationAnalysisResult result,
+                        Instant now) {
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<AnomalyScoreRecord> findAnomalyScores(UUID runId) {
+                ReconciliationRunEntity run = runRepository.findById(runId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Reconciliation run not found: " + runId));
 
-        return anomalyScoreRepository
-                .findByRunIdOrderByScoredAtAsc(runId)
-                .stream()
-                .map(ReconciliationRunPersistenceAdapter::toScoreRecord)
-                .toList();
-    }
+                List<ReconciliationDiscrepancyEntity> discrepancies = result.discrepancies().stream()
+                                .map(discrepancy -> ReconciliationDiscrepancyEntity.from(
+                                                runId,
+                                                discrepancy,
+                                                now))
+                                .toList();
 
-    private static ReconciliationRunRecord toRecord(
-            ReconciliationRunEntity entity) {
+                List<AnomalyScoreEntity> anomalyScores = result.anomalyScores().stream()
+                                .map(score -> AnomalyScoreEntity.from(runId, score))
+                                .toList();
 
-        return new ReconciliationRunRecord(
-                entity.getId(),
-                entity.getBusinessDate(),
-                entity.getPeriodStart(),
-                entity.getPeriodEnd(),
-                entity.getRunType(),
-                entity.getStatus(),
-                entity.getTransfersChecked(),
-                entity.getDiscrepanciesFound(),
-                entity.getAnomaliesFound(),
-                entity.getStartedAt(),
-                entity.getFinishedAt(),
-                entity.getErrorMessage());
-    }
+                discrepancyRepository.saveAll(discrepancies);
+                anomalyScoreRepository.saveAll(anomalyScores);
 
-    private static AnomalyScoreRecord toScoreRecord(
-            AnomalyScoreEntity entity) {
+                run.complete(
+                                result.transfersChecked(),
+                                result.discrepanciesFound(),
+                                result.anomaliesFound(),
+                                now);
 
-        return new AnomalyScoreRecord(
-                entity.getCorrelationId(),
-                entity.getAnomalyScore(),
-                entity.getModelVersion(),
-                entity.isAnomaly(),
-                entity.getScoredAt());
-    }
+                runRepository.save(run);
+        }
+
+        @Override
+        @Transactional
+        public void failRun(
+                        UUID runId,
+                        String errorMessage,
+                        Instant now) {
+
+                ReconciliationRunEntity run = runRepository.findById(runId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Reconciliation run not found: " + runId));
+
+                String message = errorMessage == null || errorMessage.isBlank()
+                                ? "Reconciliation execution failed"
+                                : errorMessage;
+
+                if (message.length() > 4000) {
+                        message = message.substring(0, 4000);
+                }
+
+                run.fail(message, now);
+                runRepository.save(run);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public Optional<ReconciliationRunRecord> findById(UUID runId) {
+                return runRepository.findById(runId).map(
+                                ReconciliationRunPersistenceAdapter::toRecord);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<ReconciliationDiscrepancyRecord> findDiscrepancies(
+                        UUID runId) {
+
+                return discrepancyRepository
+                                .findByRunIdOrderByDetectedAtAsc(runId)
+                                .stream()
+                                .map(entity -> new ReconciliationDiscrepancyRecord(
+                                                entity.getId(),
+                                                entity.getTransferId(),
+                                                entity.getCorrelationId(),
+                                                entity.getRuleCode(),
+                                                entity.getDetails(),
+                                                entity.getDetectedAt()))
+                                .toList();
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<AnomalyScoreRecord> findAnomalyScores(UUID runId) {
+
+                return anomalyScoreRepository
+                                .findByRunIdOrderByScoredAtAsc(runId)
+                                .stream()
+                                .map(ReconciliationRunPersistenceAdapter::toScoreRecord)
+                                .toList();
+        }
+
+        private static ReconciliationRunRecord toRecord(
+                        ReconciliationRunEntity entity) {
+
+                return new ReconciliationRunRecord(
+                                entity.getId(),
+                                entity.getBusinessDate(),
+                                entity.getPeriodStart(),
+                                entity.getPeriodEnd(),
+                                entity.getRunType(),
+                                entity.getStatus(),
+                                entity.getTransfersChecked(),
+                                entity.getDiscrepanciesFound(),
+                                entity.getAnomaliesFound(),
+                                entity.getStartedAt(),
+                                entity.getFinishedAt(),
+                                entity.getErrorMessage());
+        }
+
+        private static AnomalyScoreRecord toScoreRecord(
+                        AnomalyScoreEntity entity) {
+
+                return new AnomalyScoreRecord(
+                                entity.getTransferId(),
+                                entity.getCorrelationId(),
+                                entity.getAnomalyScore(),
+                                entity.getModelVersion(),
+                                entity.isAnomaly(),
+                                entity.getScoredAt());
+        }
 }

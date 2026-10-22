@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.fintech.reconciliation.domain.model.ReconciliationAnalysisResult;
@@ -14,6 +16,8 @@ import com.fintech.reconciliation.presentation.dto.ReconciliationRunDetailsRespo
 
 @Service
 public class ReconciliationRunService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReconciliationRunService.class);
 
     private final ReconciliationPeriodFactory periodFactory;
     private final ReconciliationAnalysisService analysisService;
@@ -34,12 +38,23 @@ public class ReconciliationRunService {
 
     public ReconciliationRunDetailsResponse runManual(
             LocalDate businessDate) {
+        return run(businessDate, "MANUAL");
+    }
+
+    public ReconciliationRunDetailsResponse runScheduled(
+            LocalDate businessDate) {
+        return run(businessDate, "SCHEDULED");
+    }
+
+    private ReconciliationRunDetailsResponse run(
+            LocalDate businessDate,
+            String runType) {
 
         ReconciliationPeriod period = periodFactory.forBusinessDate(businessDate);
 
         ReconciliationRunRecord run = runStore.startRun(
                 period,
-                "MANUAL",
+                runType,
                 Instant.now());
 
         try {
@@ -53,6 +68,8 @@ public class ReconciliationRunService {
                     Instant.now());
 
         } catch (RuntimeException exception) {
+            log.error("Mutabakat çalıştırılamadı [businessDate: {}]: {}", businessDate, exception.getMessage(), exception);
+
             markFailedSafely(run.runId(), exception);
 
             throw new ReconciliationExecutionException(

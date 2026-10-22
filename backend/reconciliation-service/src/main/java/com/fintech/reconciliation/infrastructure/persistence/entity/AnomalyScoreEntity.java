@@ -3,6 +3,8 @@ package com.fintech.reconciliation.infrastructure.persistence.entity;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -38,6 +40,22 @@ public class AnomalyScoreEntity {
 
     protected AnomalyScoreEntity() {
         // Required by JPA.
+    }
+
+    public static AnomalyScoreEntity from(UUID runId, AnomalyScoreRecord record) {
+
+        AnomalyScoreEntity entity = new AnomalyScoreEntity();
+
+        entity.id = UUID.randomUUID();
+        entity.runId = runId;
+        entity.transferId = record.transferId();
+        entity.correlationId = record.correlationId();
+        entity.anomalyScore = record.anomalyScore();
+        entity.modelVersion = record.modelVersion();
+        entity.anomaly = record.isAnomaly();
+        entity.scoredAt = record.scoredAt();
+
+        return entity;
     }
 
     public UUID getId() {

@@ -82,11 +82,13 @@ public class ReconciliationRunEntity {
     public void complete(
             int transfersChecked,
             int discrepanciesFound,
+            int anomaliesFound,
             Instant finishedAt) {
 
         this.status = "COMPLETED";
         this.transfersChecked = transfersChecked;
         this.discrepanciesFound = discrepanciesFound;
+        this.anomaliesFound = anomaliesFound;
         this.finishedAt = finishedAt;
         this.errorMessage = null;
     }

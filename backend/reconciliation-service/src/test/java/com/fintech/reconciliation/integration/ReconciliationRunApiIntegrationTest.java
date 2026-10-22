@@ -32,6 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.reconciliation.application.service.ReconciliationAnalysisService;
+import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
 import com.fintech.reconciliation.domain.model.DiscrepancyCode;
 import com.fintech.reconciliation.domain.model.ReconciliationAnalysisResult;
 import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancy;
@@ -40,164 +41,226 @@ import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancy;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ReconciliationRunApiIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("reconciliation_run_api_test_db")
-            .withUsername("reconciliation_run_api_test_user")
-            .withPassword("reconciliation_run_api_test_password");
+        @SuppressWarnings("resource")
+        @Container
+        static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("reconciliation_run_api_test_db")
+                        .withUsername("reconciliation_run_api_test_user")
+                        .withPassword("reconciliation_run_api_test_password");
 
-    @DynamicPropertySource
-    static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-    }
+        @DynamicPropertySource
+        static void configureDataSource(DynamicPropertyRegistry registry) {
+                registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+                registry.add("spring.datasource.username", POSTGRES::getUsername);
+                registry.add("spring.datasource.password", POSTGRES::getPassword);
+        }
 
-    @LocalServerPort
-    private int port;
+        @LocalServerPort
+        private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+        @Autowired
+        private TestRestTemplate restTemplate;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private ReconciliationAnalysisService analysisService;
+        @MockitoBean
+        private ReconciliationAnalysisService analysisService;
 
-    @BeforeEach
-    void cleanDatabase() {
-        jdbcTemplate.update("DELETE FROM anomaly_scores");
-        jdbcTemplate.update("DELETE FROM reconciliation_discrepancies");
-        jdbcTemplate.update("DELETE FROM reconciliation_runs");
-    }
+        @BeforeEach
+        void cleanDatabase() {
+                jdbcTemplate.update("DELETE FROM anomaly_scores");
+                jdbcTemplate.update("DELETE FROM reconciliation_discrepancies");
+                jdbcTemplate.update("DELETE FROM reconciliation_runs");
+        }
 
-    @Test
-    void shouldPersistCompletedRunAndReturnItsDetails() throws Exception {
-        UUID transferId = UUID.randomUUID();
-        UUID correlationId = UUID.randomUUID();
+        @Test
+        void shouldPersistCompletedRunAndReturnItsDetails() throws Exception {
+                UUID transferId = UUID.randomUUID();
+                UUID correlationId = UUID.randomUUID();
 
-        ReconciliationDiscrepancy discrepancy = new ReconciliationDiscrepancy(
-                transferId,
-                correlationId,
-                DiscrepancyCode.MISSING_CREDIT,
-                Map.of(
-                        "reason",
-                        "Completed debit has no credit or reversal.",
-                        "transferStatus",
-                        "COMPLETED"));
+                ReconciliationDiscrepancy discrepancy = new ReconciliationDiscrepancy(
+                                transferId,
+                                correlationId,
+                                DiscrepancyCode.MISSING_CREDIT,
+                                Map.of(
+                                                "reason",
+                                                "Completed debit has no credit or reversal.",
+                                                "transferStatus",
+                                                "COMPLETED"));
 
-        when(analysisService.analyze(
-                any(Instant.class),
-                any(Instant.class)))
-                .thenReturn(new ReconciliationAnalysisResult(
-                        4,
-                        List.of(discrepancy)));
+                when(analysisService.analyze(
+                                any(Instant.class),
+                                any(Instant.class)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                4,
+                                                List.of(discrepancy)));
 
-        ResponseEntity<String> response = postRun("2026-10-20");
+                ResponseEntity<String> response = postRun("2026-10-20");
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+                assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        JsonNode runResponse = objectMapper.readTree(response.getBody());
-        UUID runId = UUID.fromString(runResponse.path("runId").asText());
+                JsonNode runResponse = objectMapper.readTree(response.getBody());
+                UUID runId = UUID.fromString(runResponse.path("runId").asText());
 
-        assertThat(runResponse.path("status").asText())
-                .isEqualTo("COMPLETED");
-        assertThat(runResponse.path("runType").asText())
-                .isEqualTo("MANUAL");
-        assertThat(runResponse.path("transfersChecked").asInt())
-                .isEqualTo(4);
-        assertThat(runResponse.path("discrepanciesFound").asInt())
-                .isEqualTo(1);
-        assertThat(runResponse.path("discrepancies").size())
-                .isEqualTo(1);
-        assertThat(runResponse.at("/discrepancies/0/ruleCode").asText())
-                .isEqualTo("MISSING_CREDIT");
+                assertThat(runResponse.path("status").asText())
+                                .isEqualTo("COMPLETED");
+                assertThat(runResponse.path("runType").asText())
+                                .isEqualTo("MANUAL");
+                assertThat(runResponse.path("transfersChecked").asInt())
+                                .isEqualTo(4);
+                assertThat(runResponse.path("discrepanciesFound").asInt())
+                                .isEqualTo(1);
+                assertThat(runResponse.path("discrepancies").size())
+                                .isEqualTo(1);
+                assertThat(runResponse.at("/discrepancies/0/ruleCode").asText())
+                                .isEqualTo("MISSING_CREDIT");
 
-        String status = jdbcTemplate.queryForObject(
-                "SELECT status FROM reconciliation_runs WHERE id = ?",
-                String.class,
-                runId);
+                String status = jdbcTemplate.queryForObject(
+                                "SELECT status FROM reconciliation_runs WHERE id = ?",
+                                String.class,
+                                runId);
 
-        Integer discrepancyCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM reconciliation_discrepancies WHERE run_id = ?",
-                Integer.class,
-                runId);
+                Integer discrepancyCount = jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM reconciliation_discrepancies WHERE run_id = ?",
+                                Integer.class,
+                                runId);
 
-        assertThat(status).isEqualTo("COMPLETED");
-        assertThat(discrepancyCount).isEqualTo(1);
+                assertThat(status).isEqualTo("COMPLETED");
+                assertThat(discrepancyCount).isEqualTo(1);
 
-        ResponseEntity<String> detailsResponse = restTemplate.getForEntity(
-                baseUrl() + "/api/v1/reconciliation/runs/" + runId,
-                String.class);
+                ResponseEntity<String> detailsResponse = restTemplate.getForEntity(
+                                baseUrl() + "/api/v1/reconciliation/runs/" + runId,
+                                String.class);
 
-        assertThat(detailsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+                assertThat(detailsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        JsonNode details = objectMapper.readTree(detailsResponse.getBody());
-        assertThat(details.path("runId").asText()).isEqualTo(runId.toString());
-        assertThat(details.at("/anomalySummary/scoredCount").asLong())
-                .isZero();
-    }
+                JsonNode details = objectMapper.readTree(detailsResponse.getBody());
+                assertThat(details.path("runId").asText()).isEqualTo(runId.toString());
+                assertThat(details.at("/anomalySummary/scoredCount").asLong())
+                                .isZero();
+        }
 
-    @Test
-    void shouldMarkRunFailedWhenAnalysisFails() throws Exception {
-        doThrow(new IllegalStateException("Remote service unavailable"))
-                .when(analysisService)
-                .analyze(any(Instant.class), any(Instant.class));
+        @Test
+        void shouldMarkRunFailedWhenAnalysisFails() throws Exception {
+                doThrow(new IllegalStateException("Remote service unavailable"))
+                                .when(analysisService)
+                                .analyze(any(Instant.class), any(Instant.class));
 
-        ResponseEntity<String> response = postRun("2026-10-19");
+                ResponseEntity<String> response = postRun("2026-10-19");
 
-        assertThat(response.getStatusCode())
-                .isEqualTo(HttpStatus.BAD_GATEWAY);
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_GATEWAY);
 
-        JsonNode error = objectMapper.readTree(response.getBody());
-        UUID runId = UUID.fromString(error.path("runId").asText());
+                JsonNode error = objectMapper.readTree(response.getBody());
+                UUID runId = UUID.fromString(error.path("runId").asText());
 
-        String status = jdbcTemplate.queryForObject(
-                "SELECT status FROM reconciliation_runs WHERE id = ?",
-                String.class,
-                runId);
+                String status = jdbcTemplate.queryForObject(
+                                "SELECT status FROM reconciliation_runs WHERE id = ?",
+                                String.class,
+                                runId);
 
-        String errorMessage = jdbcTemplate.queryForObject(
-                "SELECT error_message FROM reconciliation_runs WHERE id = ?",
-                String.class,
-                runId);
+                String errorMessage = jdbcTemplate.queryForObject(
+                                "SELECT error_message FROM reconciliation_runs WHERE id = ?",
+                                String.class,
+                                runId);
 
-        assertThat(status).isEqualTo("FAILED");
-        assertThat(errorMessage).contains("Remote service unavailable");
-    }
+                assertThat(status).isEqualTo("FAILED");
+                assertThat(errorMessage).contains("Remote service unavailable");
+        }
 
-    @Test
-    void shouldReturnNotFoundForUnknownRun() {
-        ResponseEntity<String> response = restTemplate.getForEntity(
-                baseUrl() + "/api/v1/reconciliation/runs/" + UUID.randomUUID(),
-                String.class);
+        @Test
+        void shouldReturnNotFoundForUnknownRun() {
+                ResponseEntity<String> response = restTemplate.getForEntity(
+                                baseUrl() + "/api/v1/reconciliation/runs/" + UUID.randomUUID(),
+                                String.class);
 
-        assertThat(response.getStatusCode())
-                .isEqualTo(HttpStatus.NOT_FOUND);
-    }
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.NOT_FOUND);
+        }
 
-    private ResponseEntity<String> postRun(String businessDate) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        private ResponseEntity<String> postRun(String businessDate) {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String body = """
-                {
-                  "businessDate": "%s"
-                }
-                """.formatted(businessDate);
+                String body = """
+                                {
+                                  "businessDate": "%s"
+                                }
+                                """.formatted(businessDate);
 
-        return restTemplate.postForEntity(
-                baseUrl() + "/api/v1/reconciliation/run",
-                new HttpEntity<>(body, headers),
-                String.class);
-    }
+                return restTemplate.postForEntity(
+                                baseUrl() + "/api/v1/reconciliation/run",
+                                new HttpEntity<>(body, headers),
+                                String.class);
+        }
 
-    private String baseUrl() {
-        return "http://localhost:" + port;
-    }
+        private String baseUrl() {
+                return "http://localhost:" + port;
+        }
+
+        @Test
+        void shouldPersistAnomalyScoresAndUpdateRunSummary() throws Exception {
+                UUID transfer1 = UUID.randomUUID();
+                UUID transfer2 = UUID.randomUUID();
+                UUID correlation1 = UUID.randomUUID();
+                UUID correlation2 = UUID.randomUUID();
+
+                Instant scoredAt = Instant.parse("2026-10-20T03:00:00Z");
+
+                List<AnomalyScoreRecord> scores = List.of(
+                                new AnomalyScoreRecord(
+                                                transfer1,
+                                                correlation1,
+                                                0.91,
+                                                "iforest-test-v1",
+                                                true,
+                                                scoredAt),
+                                new AnomalyScoreRecord(
+                                                transfer2,
+                                                correlation2,
+                                                0.12,
+                                                "iforest-test-v1",
+                                                false,
+                                                scoredAt));
+
+                when(analysisService.analyze(
+                                any(Instant.class),
+                                any(Instant.class)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                2,
+                                                List.of(),
+                                                scores));
+
+                ResponseEntity<String> response = postRun("2026-10-20");
+
+                assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+                JsonNode result = objectMapper.readTree(response.getBody());
+                UUID runId = UUID.fromString(result.path("runId").asText());
+
+                assertThat(result.path("anomaliesFound").asInt()).isEqualTo(1);
+                assertThat(result.at("/anomalySummary/scoredCount").asLong()).isEqualTo(2);
+                assertThat(result.at("/anomalySummary/anomalyCount").asLong()).isEqualTo(1);
+
+                Integer savedScores = jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM anomaly_scores WHERE run_id = ?",
+                                Integer.class,
+                                runId);
+
+                Integer savedAnomalies = jdbcTemplate.queryForObject(
+                                """
+                                                SELECT COUNT(*)
+                                                FROM anomaly_scores
+                                                WHERE run_id = ? AND is_anomaly = TRUE
+                                                """,
+                                Integer.class,
+                                runId);
+
+                assertThat(savedScores).isEqualTo(2);
+                assertThat(savedAnomalies).isEqualTo(1);
+        }
 }

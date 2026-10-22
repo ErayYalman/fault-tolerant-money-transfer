@@ -39,6 +39,11 @@ management:
         enabled: true
 
 reconciliation:
+  ml:
+    base-url: ${ML_SERVICE_BASE_URL:http://localhost:8090}
+  schedule:
+    enabled: ${RECONCILIATION_SCHEDULE_ENABLED:true}
+    cron: ${RECONCILIATION_SCHEDULE_CRON:0 0 3 * * *}
   time-zone: ${RECONCILIATION_TIME_ZONE:Europe/Istanbul}
   clients:
     transfer-base-url: ${TRANSFER_SERVICE_BASE_URL:http://localhost:8080}

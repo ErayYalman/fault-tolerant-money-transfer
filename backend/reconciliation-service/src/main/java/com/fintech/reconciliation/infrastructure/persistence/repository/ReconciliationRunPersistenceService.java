@@ -63,6 +63,7 @@ public class ReconciliationRunPersistenceService {
         run.complete(
                 result.transfersChecked(),
                 result.discrepanciesFound(),
+                result.anomaliesFound(),
                 finishedAt);
 
         runRepository.save(run);
