@@ -11,6 +11,8 @@ import com.fintech.reconciliation.domain.model.AnomalyFeatures;
 import com.fintech.reconciliation.domain.model.AnomalyPrediction;
 import com.fintech.reconciliation.domain.port.out.AnomalyScoringProvider;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+
 @Component
 public class MlScoringClient implements AnomalyScoringProvider {
 
@@ -28,6 +30,7 @@ public class MlScoringClient implements AnomalyScoringProvider {
         }
 
         @Override
+        @CircuitBreaker(name = "mlService")
         public AnomalyPrediction score(AnomalyFeatures features) {
                 ScoringRequest request = new ScoringRequest(
                                 features.amount(),

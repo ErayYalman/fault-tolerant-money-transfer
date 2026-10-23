@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClient;
 
 import com.fintech.reconciliation.infrastructure.client.dto.LedgerEntrySnapshot;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+
 @Component
 public class PaymentServiceBClient {
 
@@ -33,6 +35,7 @@ public class PaymentServiceBClient {
         this.pageSize = pageSize;
     }
 
+    @CircuitBreaker(name = "paymentBService")
     public List<LedgerEntrySnapshot> findLedgerEntries(
             Instant fromInclusive,
             Instant toExclusive) {

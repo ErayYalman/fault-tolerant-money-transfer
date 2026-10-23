@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClient;
 
 import com.fintech.reconciliation.infrastructure.client.dto.TransferSnapshot;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+
 @Component
 public class TransferServiceClient {
 
@@ -33,6 +35,7 @@ public class TransferServiceClient {
         this.pageSize = pageSize;
     }
 
+    @CircuitBreaker(name = "transferService")
     public List<TransferSnapshot> findTransfers(
             Instant fromInclusive,
             Instant toExclusive) {
