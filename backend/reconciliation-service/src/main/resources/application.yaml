@@ -37,6 +37,8 @@ management:
         include:
           - health
           - info
+          - metrics
+          - circuitbreakers
 
   endpoint:
     health:
