@@ -5,13 +5,21 @@ spring:
   application:
     name: api-gateway
 
+  webflux:
+    problemdetails:
+      enabled: true
+
   cloud:
     gateway:
       server:
         webflux:
+          httpclient:
+            connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:2000}
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:5s}
+
           routes:
             - id: transfer-service
-              uri: ${GATEWAY_TRANSFER_SERVICE_URL:http://localhost:8080}
+              uri: ${GATEWAY_TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/v1/transfers,/api/v1/transfers/**
 
