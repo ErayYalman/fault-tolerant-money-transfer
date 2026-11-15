@@ -32,7 +32,6 @@ management:
       exposure:
         include:
           - health
-          - info
 
   endpoint:
     health:

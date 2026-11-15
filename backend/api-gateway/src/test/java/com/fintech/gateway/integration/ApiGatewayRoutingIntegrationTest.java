@@ -1,11 +1,9 @@
 package com.fintech.gateway.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,14 +11,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -127,11 +123,22 @@ class ApiGatewayRoutingIntegrationTest {
         void shouldNotExposeInternalOrReconciliationRoutes()
                         throws Exception {
 
-                HttpResponse<String> internalResponse = sendGet("/internal/transfers");
-                HttpResponse<String> reconciliationResponse = sendGet("/api/v1/reconciliation/run");
+                String[] internalPaths = {
+                                "/internal/transfers",
+                                "/internal/ledger",
+                                "/api/v1/reconciliation/run",
+                                "/score",
+                                "/train"
+                };
 
-                assertThat(internalResponse.statusCode()).isEqualTo(404);
-                assertThat(reconciliationResponse.statusCode()).isEqualTo(404);
+                for (String path : internalPaths) {
+                        HttpResponse<String> response = sendGet(path);
+
+                        assertThat(response.statusCode())
+                                        .as("Path should not be exposed: %s", path)
+                                        .isEqualTo(404);
+                }
+
                 assertThat(REQUEST_COUNT.get()).isZero();
         }
 
@@ -197,10 +204,6 @@ class ApiGatewayRoutingIntegrationTest {
                         }
                 }
 
-                // Eğer gecikme süresi 2 saniyeden (2000ms) büyükse, bu istek timeout testine
-                // aittir.
-                // Timeout testindeki isteklerin normal sayaçları kirletmemesi için burayı
-                // filtreliyoruz.
                 if (delay >= 3_000) {
                         try {
                                 exchange.sendResponseHeaders(200, 0);
@@ -230,41 +233,6 @@ class ApiGatewayRoutingIntegrationTest {
                         // İstemci bağlantıyı kapatmış olabilir.
                 } finally {
                         exchange.close();
-                }
-        }
-
-        @Nested
-        class ResolveStatusUnitTest {
-
-                @Test
-                void shouldResolveConnectionErrorTo502() {
-                        int statusCode = resolveStatus(new ConnectException("Connection refused"));
-                        assertThat(statusCode).isEqualTo(502);
-                }
-
-                @Test
-                void shouldResolveTimeoutErrorTo504() {
-                        int statusCode = resolveStatus(new TimeoutException("Gateway timeout"));
-                        assertThat(statusCode).isEqualTo(504);
-                }
-
-                @Test
-                void shouldLeaveUnrelatedApplicationErrorUnmapped() {
-                        assertThatThrownBy(() -> resolveStatus(new IllegalArgumentException("Invalid argument")))
-                                        .isInstanceOf(IllegalArgumentException.class);
-                }
-
-                private int resolveStatus(Throwable throwable) {
-                        if (throwable instanceof ConnectException) {
-                                return 502;
-                        }
-                        if (throwable instanceof TimeoutException) {
-                                return 504;
-                        }
-                        if (throwable instanceof RuntimeException runtimeException) {
-                                throw runtimeException;
-                        }
-                        throw new IllegalArgumentException(throwable);
                 }
         }
 }
