@@ -1,4 +1,14 @@
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${TRANSFER_KEYCLOAK_ISSUER:http://localhost:8180/realms/money-transfer}
+          jwk-set-uri: ${TRANSFER_KEYCLOAK_JWKS_URL:http://localhost:8180/realms/money-transfer/protocol/openid-connect/certs}
+          audiences:
+            - ${TRANSFER_SERVICE_OIDC_AUDIENCE:transfer-service}
+          jws-algorithms:
+            - RS256
   config:
     import: optional:file:../../.env[.properties]
     

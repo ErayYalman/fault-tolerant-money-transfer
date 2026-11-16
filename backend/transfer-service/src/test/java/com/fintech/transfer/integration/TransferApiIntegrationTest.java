@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -22,184 +23,185 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fintech.transfer.support.TransferTestSecurityConfiguration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(TransferTestSecurityConfiguration.class)
 class TransferApiIntegrationTest {
 
-  @SuppressWarnings("resource")
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-      .withDatabaseName("transfer_api_test_db")
-      .withUsername("transfer_api_test_user")
-      .withPassword("transfer_api_test_password");
+    @SuppressWarnings("resource")
+    @Container
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+            .withDatabaseName("transfer_api_test_db")
+            .withUsername("transfer_api_test_user")
+            .withPassword("transfer_api_test_password");
 
-  @DynamicPropertySource
-  static void registerDataSourceProperties(
-      DynamicPropertyRegistry registry) {
-    registry.add(
-        "spring.datasource.url",
-        POSTGRES::getJdbcUrl);
+    @DynamicPropertySource
+    static void registerDataSourceProperties(
+            DynamicPropertyRegistry registry) {
+        registry.add(
+                "spring.datasource.url",
+                POSTGRES::getJdbcUrl);
 
-    registry.add(
-        "spring.datasource.username",
-        POSTGRES::getUsername);
+        registry.add(
+                "spring.datasource.username",
+                POSTGRES::getUsername);
 
-    registry.add(
-        "spring.datasource.password",
-        POSTGRES::getPassword);
-  }
+        registry.add(
+                "spring.datasource.password",
+                POSTGRES::getPassword);
+    }
 
-  @LocalServerPort
-  private int port;
+    @LocalServerPort
+    private int port;
 
-  @Autowired
-  private TestRestTemplate restTemplate;
+    @Autowired
+    private TestRestTemplate restTemplate;
 
-  @Autowired
-  private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-  @Autowired
-  private ObjectMapper objectMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-  @Test
-  void shouldCreateTransfer() {
-    String idempotencyKey = "integration-" + UUID.randomUUID();
+    @Test
+    void shouldCreateTransfer() {
+        String idempotencyKey = "integration-" + UUID.randomUUID();
 
-    String request = """
-        {
-          "amount": 1500.00,
-          "currency": "TRY",
-          "fromAccountId": "11111111-1111-1111-1111-111111111111",
-          "toAccountId": "22222222-2222-2222-2222-222222222222",
-          "idempotencyKey": "%s"
-        }
-        """.formatted(idempotencyKey);
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted(idempotencyKey);
 
-    ResponseEntity<String> response = postTransfer(request);
+        ResponseEntity<String> response = postTransfer(request);
 
-    assertThat(response.getStatusCode())
-        .isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
 
-    assertThat(response.getBody())
-        .contains("\"status\":\"DEBIT_REQUESTED\"")
-        .contains("\"idempotencyKey\":\""
-            + idempotencyKey + "\"");
-  }
+        assertThat(response.getBody())
+                .contains("\"status\":\"DEBIT_REQUESTED\"")
+                .contains("\"idempotencyKey\":\""
+                        + idempotencyKey + "\"");
+    }
 
-  @Test
-  void shouldReturnExistingTransferForDuplicateIdempotencyKey() {
-    String idempotencyKey = "duplicate-" + UUID.randomUUID();
+    @Test
+    void shouldReturnExistingTransferForDuplicateIdempotencyKey() {
+        String idempotencyKey = "duplicate-" + UUID.randomUUID();
 
-    String request = """
-        {
-          "amount": 1000.00,
-          "currency": "TRY",
-          "fromAccountId": "11111111-1111-1111-1111-111111111111",
-          "toAccountId": "22222222-2222-2222-2222-222222222222",
-          "idempotencyKey": "%s"
-        }
-        """.formatted(idempotencyKey);
+        String request = """
+                {
+                  "amount": 1000.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted(idempotencyKey);
 
-    ResponseEntity<String> first = postTransfer(request);
+        ResponseEntity<String> first = postTransfer(request);
 
-    ResponseEntity<String> second = postTransfer(request);
+        ResponseEntity<String> second = postTransfer(request);
 
-    assertThat(first.getStatusCode())
-        .isEqualTo(HttpStatus.CREATED);
+        assertThat(first.getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
 
-    assertThat(second.getStatusCode())
-        .isEqualTo(HttpStatus.OK);
+        assertThat(second.getStatusCode())
+                .isEqualTo(HttpStatus.OK);
 
-    DocumentContext firstContext = JsonPath.parse(first.getBody());
-    DocumentContext secondContext = JsonPath.parse(second.getBody());
+        DocumentContext firstContext = JsonPath.parse(first.getBody());
+        DocumentContext secondContext = JsonPath.parse(second.getBody());
 
-    assertThat(secondContext.read("$.transferId", String.class))
-        .isEqualTo(firstContext.read("$.transferId", String.class));
+        assertThat(secondContext.read("$.transferId", String.class))
+                .isEqualTo(firstContext.read("$.transferId", String.class));
 
-    assertThat(secondContext.read("$.status", String.class))
-        .isEqualTo("DEBIT_REQUESTED");
-  }
+        assertThat(secondContext.read("$.status", String.class))
+                .isEqualTo("DEBIT_REQUESTED");
+    }
 
-  @Test
-  void shouldRejectSameSourceAndTargetAccount() {
-    String request = """
-        {
-          "amount": 1000.00,
-          "currency": "TRY",
-          "fromAccountId": "11111111-1111-1111-1111-111111111111",
-          "toAccountId": "11111111-1111-1111-1111-111111111111",
-          "idempotencyKey": "same-account-%s"
-        }
-        """.formatted(UUID.randomUUID());
+    @Test
+    void shouldRejectSameSourceAndTargetAccount() {
+        String request = """
+                {
+                  "amount": 1000.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountId": "11111111-1111-1111-1111-111111111111",
+                  "idempotencyKey": "same-account-%s"
+                }
+                """.formatted(UUID.randomUUID());
 
-    ResponseEntity<String> response = postTransfer(request);
+        ResponseEntity<String> response = postTransfer(request);
 
-    assertThat(response.getStatusCode())
-        .isEqualTo(HttpStatus.BAD_REQUEST);
-  }
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
 
-  private ResponseEntity<String> postTransfer(
-      String body) {
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
+    private ResponseEntity<String> postTransfer(String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth("customer-test-token");
 
-    return restTemplate.postForEntity(
-        "http://localhost:" + port
-            + "/api/v1/transfers",
-        new HttpEntity<>(body, headers),
-        String.class);
-  }
+        return restTemplate.postForEntity(
+                "http://localhost:" + port + "/api/v1/transfers",
+                new HttpEntity<>(body, headers),
+                String.class);
+    }
 
-  @Test
-  void shouldPersistTransferSagaStateAndInitialCommand() throws Exception {
-    String idempotencyKey = "outbox-integration-" + UUID.randomUUID();
+    @Test
+    void shouldPersistTransferSagaStateAndInitialCommand() throws Exception {
+        String idempotencyKey = "outbox-integration-" + UUID.randomUUID();
 
-    String request = """
-        {
-          "amount": 1500.00,
-          "currency": "TRY",
-          "fromAccountId": "11111111-1111-1111-1111-111111111111",
-          "toAccountId": "22222222-2222-2222-2222-222222222222",
-          "idempotencyKey": "%s"
-        }
-        """.formatted(idempotencyKey);
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted(idempotencyKey);
 
-    ResponseEntity<String> response = postTransfer(request);
+        ResponseEntity<String> response = postTransfer(request);
 
-    assertThat(response.getStatusCode())
-        .isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
 
-    UUID transferId = UUID.fromString(
-        objectMapper.readTree(response.getBody())
-            .get("transferId")
-            .asText());
+        UUID transferId = UUID.fromString(
+                objectMapper.readTree(response.getBody())
+                        .get("transferId")
+                        .asText());
 
-    String status = jdbcTemplate.queryForObject(
-        "SELECT status FROM transfers WHERE id = ?",
-        String.class,
-        transferId);
+        String status = jdbcTemplate.queryForObject(
+                "SELECT status FROM transfers WHERE id = ?",
+                String.class,
+                transferId);
 
-    Long sagaCount = jdbcTemplate.queryForObject(
-        "SELECT COUNT(*) FROM saga_state WHERE transfer_id = ?",
-        Long.class,
-        transferId);
+        Long sagaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM saga_state WHERE transfer_id = ?",
+                Long.class,
+                transferId);
 
-    Long outboxCount = jdbcTemplate.queryForObject(
-        """
-            SELECT COUNT(*)
-            FROM outbox_events
-            WHERE aggregate_id = ?
-              AND event_type = 'debit-requested'
-              AND status = 'PENDING'
-            """,
-        Long.class,
-        transferId);
+        Long outboxCount = jdbcTemplate.queryForObject(
+                """
+                        SELECT COUNT(*)
+                        FROM outbox_events
+                        WHERE aggregate_id = ?
+                          AND event_type = 'debit-requested'
+                          AND status = 'PENDING'
+                        """,
+                Long.class,
+                transferId);
 
-    assertThat(status).isEqualTo("DEBIT_REQUESTED");
-    assertThat(sagaCount).isEqualTo(1L);
-    assertThat(outboxCount).isEqualTo(1L);
-  }
+        assertThat(status).isEqualTo("DEBIT_REQUESTED");
+        assertThat(sagaCount).isEqualTo(1L);
+        assertThat(outboxCount).isEqualTo(1L);
+    }
 }
