@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from app.security import require_anomaly_scoring_access
 from pydantic import BaseModel, Field
 
 from app.modeling import (
@@ -70,6 +71,7 @@ def health(request: Request) -> HealthResponse:
 def score(
     payload: AnomalyScoringRequest,
     request: Request,
+    _: dict[str, Any] = Depends(require_anomaly_scoring_access),
 ) -> AnomalyScoringResponse:
     bundle: dict[str, Any] = request.app.state.model_bundle
 

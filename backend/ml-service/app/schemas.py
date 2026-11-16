@@ -41,13 +41,14 @@ class AnomalyScoringResponse(BaseModel):
 
 
 class TrainingRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     samples: list[AnomalyScoringRequest] = Field(
         max_length=100_000,
     )
     model_version: str = Field(
         default="iforest-experiment",
-        alias="modelVersion", 
+        alias="modelVersion",
         min_length=1,
         max_length=100,
     )
