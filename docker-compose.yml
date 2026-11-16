@@ -60,6 +60,55 @@ services:
     networks:
       - fintech-network
 
+  postgres-keycloak:
+    image: postgres:16-alpine
+    container_name: postgres-keycloak
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_KEYCLOAK_DB:-keycloak}
+      POSTGRES_USER: ${POSTGRES_KEYCLOAK_USER:-keycloak}
+      POSTGRES_PASSWORD: ${POSTGRES_KEYCLOAK_PASSWORD:?POSTGRES_KEYCLOAK_PASSWORD must be set}
+    volumes:
+      - postgres_keycloak_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - fintech-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    container_name: keycloak
+    restart: unless-stopped
+    command:
+      - start-dev
+      - --http-port=8080
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/${POSTGRES_KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_KEYCLOAK_USER:-keycloak}
+      KC_DB_PASSWORD: ${POSTGRES_KEYCLOAK_PASSWORD:?POSTGRES_KEYCLOAK_PASSWORD must be set}
+
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-kc-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}
+
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
+
+    ports:
+      - "${KEYCLOAK_HOST_BIND:-127.0.0.1}:${KEYCLOAK_HTTP_PORT:-8180}:8080"
+
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+
+    networks:
+      - fintech-network
+
   ml-anomaly-service:
     build:
       context: ./backend/ml-service
@@ -122,3 +171,4 @@ volumes:
   postgres_payment_b_data:
   postgres_reconciliation_data:
   kafka_data:
+  postgres_keycloak_data:
