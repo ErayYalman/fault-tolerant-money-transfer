@@ -1,4 +1,14 @@
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${PAYMENT_A_KEYCLOAK_ISSUER:http://localhost:8180/realms/money-transfer}
+          jwk-set-uri: ${PAYMENT_A_KEYCLOAK_JWKS_URL:http://localhost:8180/realms/money-transfer/protocol/openid-connect/certs}
+          audiences:
+            - ${PAYMENT_A_SERVICE_OIDC_AUDIENCE:payment-service-a}
+          jws-algorithms:
+            - RS256
   config:
     import: optional:file:../../.env[.properties]
 
