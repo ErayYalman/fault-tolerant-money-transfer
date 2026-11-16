@@ -1,5 +1,8 @@
 package com.fintech.reconciliation.infrastructure.client;
 
+import static org.springframework.security.oauth2.client.web.client.RequestAttributeClientRegistrationIdResolver.clientRegistrationId;
+import static org.springframework.security.oauth2.client.web.client.RequestAttributePrincipalResolver.principal;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -58,6 +61,8 @@ public class TransferServiceClient {
                         .queryParam("page", page)
                         .queryParam("size", pageSize)
                         .build())
+                .attributes(clientRegistrationId("reconciliation-service"))
+                .attributes(principal("reconciliation-service"))
                 .retrieve()
                 .body(RESPONSE_TYPE);
 

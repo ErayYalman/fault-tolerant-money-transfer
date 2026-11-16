@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,180 +40,222 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ReconciliationDependencyFailureIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("reconciliation_dependency_failure_db")
-            .withUsername("reconciliation_dependency_failure_user")
-            .withPassword("reconciliation_dependency_failure_password");
+        @SuppressWarnings("resource")
+        @Container
+        static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("reconciliation_dependency_failure_db")
+                        .withUsername("reconciliation_dependency_failure_user")
+                        .withPassword("reconciliation_dependency_failure_password");
 
-    private static final AtomicInteger REQUEST_COUNT = new AtomicInteger();
+        private static final AtomicInteger REQUEST_COUNT = new AtomicInteger();
 
-    private static final HttpServer TRANSFER_UPSTREAM = startUpstream();
+        private static final AtomicReference<String> LAST_AUTHORIZATION_HEADER = new AtomicReference<>();
 
-    @LocalServerPort
-    private int port;
+        private static final HttpServer TRANSFER_UPSTREAM = startUpstream();
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+        @LocalServerPort
+        private int port;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+        @Autowired
+        private TestRestTemplate restTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private CircuitBreakerRegistry circuitBreakerRegistry;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        @Autowired
+        private CircuitBreakerRegistry circuitBreakerRegistry;
 
-        registry.add(
-                "reconciliation.clients.transfer-base-url",
-                () -> "http://127.0.0.1:"
-                        + TRANSFER_UPSTREAM.getAddress().getPort());
-    }
+        @DynamicPropertySource
+        static void configureProperties(DynamicPropertyRegistry registry) {
+                registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+                registry.add("spring.datasource.username", POSTGRES::getUsername);
+                registry.add("spring.datasource.password", POSTGRES::getPassword);
 
-    @BeforeEach
-    void resetState() {
-        jdbcTemplate.update("DELETE FROM anomaly_scores");
-        jdbcTemplate.update("DELETE FROM reconciliation_discrepancies");
-        jdbcTemplate.update("DELETE FROM reconciliation_runs");
+                registry.add(
+                                "reconciliation.clients.transfer-base-url",
+                                () -> "http://127.0.0.1:"
+                                                + TRANSFER_UPSTREAM.getAddress().getPort());
 
-        REQUEST_COUNT.set(0);
-
-        circuitBreakerRegistry
-                .circuitBreaker("transferService")
-                .reset();
-    }
-
-    @AfterAll
-    static void stopUpstream() {
-        TRANSFER_UPSTREAM.stop(0);
-    }
-
-    @Test
-    void shouldPersistFailedRunsAndStopCallingUnavailableTransferService()
-            throws Exception {
-
-        CircuitBreaker transferBreaker = circuitBreakerRegistry.circuitBreaker("transferService");
-
-        assertThat(transferBreaker.getState())
-                .isEqualTo(CircuitBreaker.State.CLOSED);
-
-        for (int i = 0; i < 4; i++) {
-            ResponseEntity<String> response = postManualRun();
-
-            assertThat(response.getStatusCode())
-                    .isEqualTo(HttpStatus.BAD_GATEWAY);
-
-            JsonNode error = objectMapper.readTree(response.getBody());
-
-            String runId = error.path("runId").asText();
-
-            assertThat(runId).isNotBlank();
-
-            String persistedStatus = jdbcTemplate.queryForObject(
-                    "SELECT status FROM reconciliation_runs WHERE id = ?",
-                    String.class,
-                    java.util.UUID.fromString(runId));
-
-            String errorMessage = jdbcTemplate.queryForObject(
-                    "SELECT error_message FROM reconciliation_runs WHERE id = ?",
-                    String.class,
-                    java.util.UUID.fromString(runId));
-
-            assertThat(persistedStatus).isEqualTo("FAILED");
-            assertThat(errorMessage).isNotBlank();
+                registry.add(
+                                "spring.security.oauth2.client.provider.keycloak.token-uri",
+                                () -> "http://127.0.0.1:"
+                                                + TRANSFER_UPSTREAM.getAddress().getPort()
+                                                + "/token");
         }
 
-        assertThat(REQUEST_COUNT.get()).isEqualTo(4);
+        @BeforeEach
+        void resetState() {
+                jdbcTemplate.update("DELETE FROM anomaly_scores");
+                jdbcTemplate.update("DELETE FROM reconciliation_discrepancies");
+                jdbcTemplate.update("DELETE FROM reconciliation_runs");
 
-        assertThat(transferBreaker.getState())
-                .isEqualTo(CircuitBreaker.State.OPEN);
+                REQUEST_COUNT.set(0);
+                LAST_AUTHORIZATION_HEADER.set(null);
 
-        ResponseEntity<String> rejectedResponse = postManualRun();
+                circuitBreakerRegistry
+                                .circuitBreaker("transferService")
+                                .reset();
+        }
 
-        assertThat(rejectedResponse.getStatusCode())
-                .isEqualTo(HttpStatus.BAD_GATEWAY);
+        @AfterAll
+        static void stopUpstream() {
+                TRANSFER_UPSTREAM.stop(0);
+        }
 
-        JsonNode error = objectMapper.readTree(rejectedResponse.getBody());
+        @Test
+        void shouldPersistFailedRunsAndStopCallingUnavailableTransferService()
+                        throws Exception {
 
-        String runId = error.path("runId").asText();
+                CircuitBreaker transferBreaker = circuitBreakerRegistry.circuitBreaker("transferService");
 
-        assertThat(runId).isNotBlank();
+                assertThat(transferBreaker.getState())
+                                .isEqualTo(CircuitBreaker.State.CLOSED);
 
-        assertThat(REQUEST_COUNT.get()).isEqualTo(4);
+                for (int i = 0; i < 4; i++) {
+                        ResponseEntity<String> response = postManualRun();
 
-        String persistedStatus = jdbcTemplate.queryForObject(
-                "SELECT status FROM reconciliation_runs WHERE id = ?",
-                String.class,
-                java.util.UUID.fromString(runId));
+                        assertThat(response.getStatusCode())
+                                        .isEqualTo(HttpStatus.BAD_GATEWAY);
 
-        assertThat(persistedStatus).isEqualTo("FAILED");
+                        JsonNode error = objectMapper.readTree(response.getBody());
 
-        assertThat(circuitBreakerRegistry
-                .circuitBreaker("paymentAService")
-                .getState())
-                .isEqualTo(CircuitBreaker.State.CLOSED);
-    }
+                        String runId = error.path("runId").asText();
 
-    private ResponseEntity<String> postManualRun() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+                        assertThat(runId).isNotBlank();
 
-        String requestBody = """
-                {
-                  "businessDate": "2026-10-20"
+                        String persistedStatus = jdbcTemplate.queryForObject(
+                                        "SELECT status FROM reconciliation_runs WHERE id = ?",
+                                        String.class,
+                                        java.util.UUID.fromString(runId));
+
+                        String errorMessage = jdbcTemplate.queryForObject(
+                                        "SELECT error_message FROM reconciliation_runs WHERE id = ?",
+                                        String.class,
+                                        java.util.UUID.fromString(runId));
+
+                        assertThat(persistedStatus).isEqualTo("FAILED");
+                        assertThat(errorMessage).isNotBlank();
                 }
-                """;
 
-        return restTemplate.postForEntity(
-                "http://localhost:" + port + "/api/v1/reconciliation/run",
-                new HttpEntity<>(requestBody, headers),
-                String.class);
-    }
+                assertThat(REQUEST_COUNT.get()).isEqualTo(4);
+                assertThat(LAST_AUTHORIZATION_HEADER.get())
+                                .isEqualTo("Bearer test-access-token");
 
-    private static HttpServer startUpstream() {
-        try {
-            HttpServer server = HttpServer.create(
-                    new InetSocketAddress("127.0.0.1", 0), 0);
+                assertThat(transferBreaker.getState())
+                                .isEqualTo(CircuitBreaker.State.OPEN);
 
-            server.createContext(
-                    "/internal/transfers",
-                    ReconciliationDependencyFailureIntegrationTest::handleRequest);
+                ResponseEntity<String> rejectedResponse = postManualRun();
 
-            server.start();
-            return server;
+                assertThat(rejectedResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_GATEWAY);
 
-        } catch (IOException exception) {
-            throw new ExceptionInInitializerError(exception);
+                JsonNode error = objectMapper.readTree(rejectedResponse.getBody());
+
+                String runId = error.path("runId").asText();
+
+                assertThat(runId).isNotBlank();
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(4);
+
+                String persistedStatus = jdbcTemplate.queryForObject(
+                                "SELECT status FROM reconciliation_runs WHERE id = ?",
+                                String.class,
+                                java.util.UUID.fromString(runId));
+
+                assertThat(persistedStatus).isEqualTo("FAILED");
+
+                assertThat(circuitBreakerRegistry
+                                .circuitBreaker("paymentAService")
+                                .getState())
+                                .isEqualTo(CircuitBreaker.State.CLOSED);
         }
-    }
 
-    private static void handleRequest(HttpExchange exchange) {
-        REQUEST_COUNT.incrementAndGet();
+        private ResponseEntity<String> postManualRun() {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-        byte[] body = "temporarily unavailable"
-                .getBytes(StandardCharsets.UTF_8);
+                String requestBody = """
+                                {
+                                  "businessDate": "2026-10-20"
+                                }
+                                """;
 
-        try {
-            exchange.getResponseHeaders().set(
-                    "Content-Type",
-                    "text/plain");
-
-            exchange.sendResponseHeaders(503, body.length);
-
-            try (OutputStream responseBody = exchange.getResponseBody()) {
-                responseBody.write(body);
-            }
-        } catch (IOException ignored) {
-        } finally {
-            exchange.close();
+                return restTemplate.postForEntity(
+                                "http://localhost:" + port + "/api/v1/reconciliation/run",
+                                new HttpEntity<>(requestBody, headers),
+                                String.class);
         }
-    }
+
+        private static HttpServer startUpstream() {
+                try {
+                        HttpServer server = HttpServer.create(
+                                        new InetSocketAddress("127.0.0.1", 0), 0);
+
+                        server.createContext(
+                                        "/token",
+                                        ReconciliationDependencyFailureIntegrationTest::handleTokenRequest);
+
+                        server.createContext(
+                                        "/internal/transfers",
+                                        ReconciliationDependencyFailureIntegrationTest::handleRequest);
+
+                        server.start();
+                        return server;
+
+                } catch (IOException exception) {
+                        throw new ExceptionInInitializerError(exception);
+                }
+        }
+
+        private static void handleTokenRequest(HttpExchange exchange) {
+                byte[] body = """
+                                {
+                                  "access_token": "test-access-token",
+                                  "token_type": "Bearer",
+                                  "expires_in": 300
+                                }
+                                """.getBytes(StandardCharsets.UTF_8);
+
+                try {
+                        exchange.getResponseHeaders().set(
+                                        "Content-Type",
+                                        "application/json");
+
+                        exchange.sendResponseHeaders(200, body.length);
+
+                        try (OutputStream responseBody = exchange.getResponseBody()) {
+                                responseBody.write(body);
+                        }
+                } catch (IOException ignored) {
+                } finally {
+                        exchange.close();
+                }
+        }
+
+        private static void handleRequest(HttpExchange exchange) {
+                REQUEST_COUNT.incrementAndGet();
+                LAST_AUTHORIZATION_HEADER.set(
+                                exchange.getRequestHeaders().getFirst("Authorization"));
+
+                byte[] body = "temporarily unavailable"
+                                .getBytes(StandardCharsets.UTF_8);
+
+                try {
+                        exchange.getResponseHeaders().set(
+                                        "Content-Type",
+                                        "text/plain");
+
+                        exchange.sendResponseHeaders(503, body.length);
+
+                        try (OutputStream responseBody = exchange.getResponseBody()) {
+                                responseBody.write(body);
+                        }
+                } catch (IOException ignored) {
+                } finally {
+                        exchange.close();
+                }
+        }
 }

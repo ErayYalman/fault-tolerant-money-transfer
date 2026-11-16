@@ -1,3 +1,12 @@
 reconciliation:
   schedule:
     enabled: false
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          reconciliation-service:
+            client-id: test-reconciliation-service
+            client-secret: test-secret

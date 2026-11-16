@@ -1,4 +1,19 @@
 spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          reconciliation-service:
+            provider: keycloak
+            client-id: ${RECONCILIATION_OIDC_CLIENT_ID:reconciliation-service}
+            client-secret: ${RECONCILIATION_OIDC_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            client-authentication-method: client_secret_basic
+
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/money-transfer/protocol/openid-connect/token}
+
   config:
     import: optional:file:../../.env[.properties]
 

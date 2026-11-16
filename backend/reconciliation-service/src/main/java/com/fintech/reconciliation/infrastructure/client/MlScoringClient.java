@@ -13,6 +13,9 @@ import com.fintech.reconciliation.domain.port.out.AnomalyScoringProvider;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
+import static org.springframework.security.oauth2.client.web.client.RequestAttributeClientRegistrationIdResolver.clientRegistrationId;
+import static org.springframework.security.oauth2.client.web.client.RequestAttributePrincipalResolver.principal;
+
 @Component
 public class MlScoringClient implements AnomalyScoringProvider {
 
@@ -42,6 +45,8 @@ public class MlScoringClient implements AnomalyScoringProvider {
 
                 ScoringResponse response = restClient.post()
                                 .uri("/score")
+                                .attributes(clientRegistrationId("reconciliation-service"))
+                                .attributes(principal("reconciliation-service"))
                                 .body(request)
                                 .retrieve()
                                 .body(ScoringResponse.class);

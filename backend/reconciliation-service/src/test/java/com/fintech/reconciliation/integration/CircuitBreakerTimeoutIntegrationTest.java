@@ -72,6 +72,12 @@ class CircuitBreakerTimeoutIntegrationTest {
                 "reconciliation.clients.transfer-base-url",
                 () -> "http://127.0.0.1:"
                         + UPSTREAM.getAddress().getPort());
+
+        registry.add(
+                "spring.security.oauth2.client.provider.keycloak.token-uri",
+                () -> "http://127.0.0.1:"
+                        + UPSTREAM.getAddress().getPort()
+                        + "/token");
     }
 
     @BeforeEach
@@ -120,6 +126,10 @@ class CircuitBreakerTimeoutIntegrationTest {
             server.setExecutor(UPSTREAM_EXECUTOR);
 
             server.createContext(
+                    "/token",
+                    CircuitBreakerTimeoutIntegrationTest::handleTokenRequest);
+
+            server.createContext(
                     "/internal/transfers",
                     CircuitBreakerTimeoutIntegrationTest::handleRequest);
 
@@ -128,6 +138,31 @@ class CircuitBreakerTimeoutIntegrationTest {
 
         } catch (IOException exception) {
             throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private static void handleTokenRequest(HttpExchange exchange) {
+        byte[] body = """
+                {
+                  "access_token": "test-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 300
+                }
+                """.getBytes(StandardCharsets.UTF_8);
+
+        try {
+            exchange.getResponseHeaders().set(
+                    "Content-Type",
+                    "application/json");
+
+            exchange.sendResponseHeaders(200, body.length);
+
+            try (OutputStream responseBody = exchange.getResponseBody()) {
+                responseBody.write(body);
+            }
+        } catch (IOException ignored) {
+        } finally {
+            exchange.close();
         }
     }
 

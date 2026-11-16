@@ -76,6 +76,9 @@ class HttpClientTimeoutIntegrationTest {
         registry.add(
                 "reconciliation.ml.base-url",
                 () -> baseUrl);
+        registry.add(
+                "spring.security.oauth2.client.provider.keycloak.token-uri",
+                () -> baseUrl + "/token");
 
         // Testte 5 saniyelik varsayılanı beklemeden timeout doğrulayabilmek için.
         registry.add("spring.http.client.read-timeout", () -> "150ms");
@@ -129,12 +132,37 @@ class HttpClientTimeoutIntegrationTest {
             HttpServer server = HttpServer.create(
                     new InetSocketAddress("127.0.0.1", 0), 0);
 
+            server.createContext("/token", HttpClientTimeoutIntegrationTest::handleTokenRequest);
             server.createContext("/", HttpClientTimeoutIntegrationTest::respondSlowly);
             server.start();
 
             return server;
         } catch (IOException exception) {
             throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private static void handleTokenRequest(HttpExchange exchange) {
+        byte[] body = """
+                {
+                  "access_token": "test-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 300
+                }
+                """.getBytes(StandardCharsets.UTF_8);
+
+        try {
+            exchange.getResponseHeaders().set(
+                    "Content-Type", "application/json");
+
+            exchange.sendResponseHeaders(200, body.length);
+
+            try (OutputStream responseBody = exchange.getResponseBody()) {
+                responseBody.write(body);
+            }
+        } catch (IOException ignored) {
+        } finally {
+            exchange.close();
         }
     }
 

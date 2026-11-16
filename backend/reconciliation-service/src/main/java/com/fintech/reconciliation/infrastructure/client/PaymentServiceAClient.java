@@ -12,6 +12,9 @@ import com.fintech.reconciliation.infrastructure.client.dto.LedgerEntrySnapshot;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
+import static org.springframework.security.oauth2.client.web.client.RequestAttributeClientRegistrationIdResolver.clientRegistrationId;
+import static org.springframework.security.oauth2.client.web.client.RequestAttributePrincipalResolver.principal;
+
 @Component
 public class PaymentServiceAClient {
 
@@ -58,6 +61,8 @@ public class PaymentServiceAClient {
                         .queryParam("page", page)
                         .queryParam("size", pageSize)
                         .build())
+                .attributes(clientRegistrationId("reconciliation-service"))
+                .attributes(principal("reconciliation-service"))
                 .retrieve()
                 .body(RESPONSE_TYPE);
 
