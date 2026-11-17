@@ -20,19 +20,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import com.fintech.gateway.support.GatewayTestSecurityConfiguration;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(GatewayTestSecurityConfiguration.class)
 class ApiGatewayRoutingIntegrationTest {
 
         private static final AtomicInteger REQUEST_COUNT = new AtomicInteger();
         private static final AtomicReference<String> LAST_METHOD = new AtomicReference<>();
         private static final AtomicReference<String> LAST_PATH = new AtomicReference<>();
         private static final AtomicReference<String> LAST_BODY = new AtomicReference<>();
+        private static final AtomicReference<String> LAST_AUTHORIZATION = new AtomicReference<>();
 
         private static final AtomicLong UPSTREAM_DELAY_MILLIS = new AtomicLong(0);
         private static final AtomicInteger UPSTREAM_STATUS = new AtomicInteger(201);
@@ -69,6 +73,7 @@ class ApiGatewayRoutingIntegrationTest {
                 LAST_METHOD.set(null);
                 LAST_PATH.set(null);
                 LAST_BODY.set(null);
+                LAST_AUTHORIZATION.set(null);
                 UPSTREAM_DELAY_MILLIS.set(0);
                 UPSTREAM_STATUS.set(201);
                 UPSTREAM_RESPONSE_BODY.set(
@@ -102,6 +107,7 @@ class ApiGatewayRoutingIntegrationTest {
                 HttpRequest request = HttpRequest.newBuilder()
                                 .uri(URI.create(gatewayBaseUrl() + "/api/v1/transfers?source=test"))
                                 .header("Content-Type", "application/json")
+                                .header("Authorization", "Bearer customer-test-token")
                                 .timeout(Duration.ofSeconds(5))
                                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                                 .build();
@@ -117,6 +123,8 @@ class ApiGatewayRoutingIntegrationTest {
                 assertThat(LAST_METHOD.get()).isEqualTo("POST");
                 assertThat(LAST_PATH.get()).isEqualTo("/api/v1/transfers?source=test");
                 assertThat(LAST_BODY.get()).isEqualTo(requestBody);
+                assertThat(LAST_AUTHORIZATION.get())
+                                .isEqualTo("Bearer customer-test-token");
         }
 
         @Test
@@ -136,7 +144,7 @@ class ApiGatewayRoutingIntegrationTest {
 
                         assertThat(response.statusCode())
                                         .as("Path should not be exposed: %s", path)
-                                        .isEqualTo(404);
+                                        .isEqualTo(403);
                 }
 
                 assertThat(REQUEST_COUNT.get()).isZero();
@@ -166,14 +174,66 @@ class ApiGatewayRoutingIntegrationTest {
                 assertThat(response.body()).isEqualTo("{\"message\":\"Upstream temporarily unavailable\"}");
         }
 
-        private HttpResponse<String> sendGet(String path) throws Exception {
+        @Test
+        void shouldRejectTransferRequestWithoutBearerToken()
+                        throws Exception {
+
                 HttpRequest request = HttpRequest.newBuilder()
-                                .uri(URI.create(gatewayBaseUrl() + path))
+                                .uri(URI.create(gatewayBaseUrl() + "/api/v1/transfers"))
                                 .timeout(Duration.ofSeconds(5))
                                 .GET()
                                 .build();
 
-                return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(401);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectAuthenticatedUserWithoutCustomerRole()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/transfers",
+                                "operations-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectTokenFromAnotherClient()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/transfers",
+                                "foreign-client-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        private HttpResponse<String> sendGet(String path) throws Exception {
+                return sendGet(path, "customer-test-token");
+        }
+
+        private HttpResponse<String> sendGet(
+                        String path,
+                        String token) throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(gatewayBaseUrl() + path))
+                                .header("Authorization", "Bearer " + token)
+                                .timeout(Duration.ofSeconds(5))
+                                .GET()
+                                .build();
+
+                return httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
         }
 
         private String gatewayBaseUrl() {
@@ -216,6 +276,8 @@ class ApiGatewayRoutingIntegrationTest {
                 REQUEST_COUNT.incrementAndGet();
                 LAST_METHOD.set(exchange.getRequestMethod());
                 LAST_PATH.set(exchange.getRequestURI().toString());
+                LAST_AUTHORIZATION.set(
+                                exchange.getRequestHeaders().getFirst("Authorization"));
 
                 try {
                         byte[] requestBytes = exchange.getRequestBody().readAllBytes();
