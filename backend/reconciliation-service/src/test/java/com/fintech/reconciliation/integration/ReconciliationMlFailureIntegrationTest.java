@@ -16,8 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -41,194 +43,201 @@ import com.fintech.reconciliation.domain.port.out.TransferDataProvider;
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(ReconciliationTestSecurityConfiguration.class)
 class ReconciliationMlFailureIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("reconciliation_ml_failure_test_db")
-            .withUsername("reconciliation_ml_failure_test_user")
-            .withPassword("reconciliation_ml_failure_test_password");
+        @SuppressWarnings("resource")
+        @Container
+        static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("reconciliation_ml_failure_test_db")
+                        .withUsername("reconciliation_ml_failure_test_user")
+                        .withPassword("reconciliation_ml_failure_test_password");
 
-    private static final Instant STARTED_AT = Instant.parse("2026-10-20T10:00:00Z");
+        private static final Instant STARTED_AT = Instant.parse("2026-10-20T10:00:00Z");
 
-    private static final UUID TRANSFER_ID = UUID.randomUUID();
-    private static final UUID CORRELATION_ID = UUID.randomUUID();
-    private static final UUID ACCOUNT_A_ID = UUID.randomUUID();
-    private static final UUID ACCOUNT_B_ID = UUID.randomUUID();
+        private static final UUID TRANSFER_ID = UUID.randomUUID();
+        private static final UUID CORRELATION_ID = UUID.randomUUID();
+        private static final UUID ACCOUNT_A_ID = UUID.randomUUID();
+        private static final UUID ACCOUNT_B_ID = UUID.randomUUID();
 
-    @DynamicPropertySource
-    static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-    }
+        @DynamicPropertySource
+        static void configureDataSource(DynamicPropertyRegistry registry) {
+                registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+                registry.add("spring.datasource.username", POSTGRES::getUsername);
+                registry.add("spring.datasource.password", POSTGRES::getPassword);
+        }
 
-    @LocalServerPort
-    private int port;
+        @LocalServerPort
+        private int port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+        @Autowired
+        private TestRestTemplate restTemplate;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @MockitoBean
-    private TransferDataProvider transferDataProvider;
+        @MockitoBean
+        private TransferDataProvider transferDataProvider;
 
-    @MockitoBean
-    private PaymentALedgerDataProvider paymentALedgerDataProvider;
+        @MockitoBean
+        private PaymentALedgerDataProvider paymentALedgerDataProvider;
 
-    @MockitoBean
-    private PaymentBLedgerDataProvider paymentBLedgerDataProvider;
+        @MockitoBean
+        private PaymentBLedgerDataProvider paymentBLedgerDataProvider;
 
-    @MockitoBean
-    private AnomalyScoringProvider anomalyScoringProvider;
+        @MockitoBean
+        private AnomalyScoringProvider anomalyScoringProvider;
 
-    @BeforeEach
-    void cleanDatabase() {
-        jdbcTemplate.update("DELETE FROM anomaly_scores");
-        jdbcTemplate.update("DELETE FROM reconciliation_discrepancies");
-        jdbcTemplate.update("DELETE FROM reconciliation_runs");
-    }
+        @BeforeEach
+        void cleanDatabase() {
+                jdbcTemplate.update("DELETE FROM anomaly_scores");
+                jdbcTemplate.update("DELETE FROM reconciliation_discrepancies");
+                jdbcTemplate.update("DELETE FROM reconciliation_runs");
+        }
 
-    @Test
-    void shouldCompleteReconciliationAndReportMlUnavailableWhenScoringIsUnavailable()
-            throws Exception {
+        @Test
+        void shouldCompleteReconciliationAndReportMlUnavailableWhenScoringIsUnavailable()
+                        throws Exception {
 
-        TransferRecord transfer = new TransferRecord(
-                TRANSFER_ID,
-                CORRELATION_ID,
-                new BigDecimal("250.00"),
-                "TRY",
-                "COMPLETED",
-                STARTED_AT,
-                STARTED_AT.plusMillis(20),
-                STARTED_AT.plusMillis(100),
-                STARTED_AT.plusMillis(110),
-                STARTED_AT.plusMillis(500),
-                STARTED_AT.plusMillis(500));
+                TransferRecord transfer = new TransferRecord(
+                                TRANSFER_ID,
+                                CORRELATION_ID,
+                                new BigDecimal("250.00"),
+                                "TRY",
+                                "COMPLETED",
+                                STARTED_AT,
+                                STARTED_AT.plusMillis(20),
+                                STARTED_AT.plusMillis(100),
+                                STARTED_AT.plusMillis(110),
+                                STARTED_AT.plusMillis(500),
+                                STARTED_AT.plusMillis(500));
 
-        LedgerEntryRecord debit = new LedgerEntryRecord(
-                TRANSFER_ID,
-                CORRELATION_ID,
-                ACCOUNT_A_ID,
-                new BigDecimal("250.00"),
-                new BigDecimal("1000.00"),
-                new BigDecimal("750.00"),
-                "DEBIT",
-                "COMPLETED",
-                STARTED_AT.plusMillis(100));
+                LedgerEntryRecord debit = new LedgerEntryRecord(
+                                TRANSFER_ID,
+                                CORRELATION_ID,
+                                ACCOUNT_A_ID,
+                                new BigDecimal("250.00"),
+                                new BigDecimal("1000.00"),
+                                new BigDecimal("750.00"),
+                                "DEBIT",
+                                "COMPLETED",
+                                STARTED_AT.plusMillis(100));
 
-        LedgerEntryRecord credit = new LedgerEntryRecord(
-                TRANSFER_ID,
-                CORRELATION_ID,
-                ACCOUNT_B_ID,
-                new BigDecimal("250.00"),
-                new BigDecimal("500.00"),
-                new BigDecimal("750.00"),
-                "CREDIT",
-                "COMPLETED",
-                STARTED_AT.plusMillis(500));
+                LedgerEntryRecord credit = new LedgerEntryRecord(
+                                TRANSFER_ID,
+                                CORRELATION_ID,
+                                ACCOUNT_B_ID,
+                                new BigDecimal("250.00"),
+                                new BigDecimal("500.00"),
+                                new BigDecimal("750.00"),
+                                "CREDIT",
+                                "COMPLETED",
+                                STARTED_AT.plusMillis(500));
 
-        when(transferDataProvider.findTransfers(
-                any(Instant.class), any(Instant.class)))
-                .thenReturn(List.of(transfer));
+                when(transferDataProvider.findTransfers(
+                                any(Instant.class), any(Instant.class)))
+                                .thenReturn(List.of(transfer));
 
-        when(paymentALedgerDataProvider.findLedgerEntries(
-                any(Instant.class), any(Instant.class)))
-                .thenReturn(List.of(debit));
+                when(paymentALedgerDataProvider.findLedgerEntries(
+                                any(Instant.class), any(Instant.class)))
+                                .thenReturn(List.of(debit));
 
-        when(paymentBLedgerDataProvider.findLedgerEntries(
-                any(Instant.class), any(Instant.class)))
-                .thenReturn(List.of(credit));
+                when(paymentBLedgerDataProvider.findLedgerEntries(
+                                any(Instant.class), any(Instant.class)))
+                                .thenReturn(List.of(credit));
 
-        when(anomalyScoringProvider.score(any(AnomalyFeatures.class)))
-                .thenThrow(new IllegalStateException("ML service unavailable"));
+                when(anomalyScoringProvider.score(any(AnomalyFeatures.class)))
+                                .thenThrow(new IllegalStateException("ML service unavailable"));
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.setBearerAuth("operations-test-token");
 
-        String requestBody = """
-                {
-                  "businessDate": "2026-10-20"
-                }
-                """;
+                String requestBody = """
+                                {
+                                  "businessDate": "2026-10-20"
+                                }
+                                """;
 
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                baseUrl() + "/api/v1/reconciliation/run",
-                new HttpEntity<>(requestBody, headers),
-                String.class);
+                ResponseEntity<String> response = restTemplate.postForEntity(
+                                baseUrl() + "/api/v1/reconciliation/run",
+                                new HttpEntity<>(requestBody, headers),
+                                String.class);
 
-        assertThat(response.getStatusCode())
-                .isEqualTo(HttpStatus.OK);
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
 
-        JsonNode result = objectMapper.readTree(response.getBody());
-        UUID runId = UUID.fromString(result.path("runId").asText());
+                JsonNode result = objectMapper.readTree(response.getBody());
+                UUID runId = UUID.fromString(result.path("runId").asText());
 
-        assertThat(result.path("status").asText())
-                .isEqualTo("COMPLETED");
+                assertThat(result.path("status").asText())
+                                .isEqualTo("COMPLETED");
 
-        assertThat(result.path("transfersChecked").asInt())
-                .isEqualTo(1);
+                assertThat(result.path("transfersChecked").asInt())
+                                .isEqualTo(1);
 
-        ResponseEntity<String> detailsResponse = restTemplate.getForEntity(
-                baseUrl() + "/api/v1/reconciliation/runs/" + runId,
-                String.class);
+                HttpHeaders detailHeaders = new HttpHeaders();
+                detailHeaders.setBearerAuth("operations-test-token");
 
-        assertThat(detailsResponse.getStatusCode())
-                .isEqualTo(HttpStatus.OK);
+                ResponseEntity<String> detailsResponse = restTemplate.exchange(
+                                baseUrl() + "/api/v1/reconciliation/runs/" + runId,
+                                HttpMethod.GET,
+                                new HttpEntity<>(detailHeaders),
+                                String.class);
 
-        JsonNode details = objectMapper.readTree(detailsResponse.getBody());
+                assertThat(detailsResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
 
-        assertThat(details.path("status").asText())
-                .isEqualTo("COMPLETED");
+                JsonNode details = objectMapper.readTree(detailsResponse.getBody());
 
-        assertThat(details.path("errorMessage").isNull())
-                .isTrue();
+                assertThat(details.path("status").asText())
+                                .isEqualTo("COMPLETED");
 
-        assertThat(details.at("/anomalySummary/status").asText())
-                .isEqualTo("UNAVAILABLE");
+                assertThat(details.path("errorMessage").isNull())
+                                .isTrue();
 
-        assertThat(details.at("/anomalySummary/attemptedCount").asInt())
-                .isEqualTo(1);
+                assertThat(details.at("/anomalySummary/status").asText())
+                                .isEqualTo("UNAVAILABLE");
 
-        assertThat(details.at("/anomalySummary/failedCount").asInt())
-                .isEqualTo(1);
+                assertThat(details.at("/anomalySummary/attemptedCount").asInt())
+                                .isEqualTo(1);
 
-        assertThat(details.at("/anomalySummary/scoredCount").asInt())
-                .isZero();
+                assertThat(details.at("/anomalySummary/failedCount").asInt())
+                                .isEqualTo(1);
 
-        assertThat(details.at("/anomalySummary/errorMessage").asText())
-                .contains("ML scoring failed for 1 of 1 eligible transfer(s)");
+                assertThat(details.at("/anomalySummary/scoredCount").asInt())
+                                .isZero();
 
-        String persistedStatus = jdbcTemplate.queryForObject(
-                "SELECT status FROM reconciliation_runs WHERE id = ?",
-                String.class,
-                runId);
+                assertThat(details.at("/anomalySummary/errorMessage").asText())
+                                .contains("ML scoring failed for 1 of 1 eligible transfer(s)");
 
-        String scoringStatus = jdbcTemplate.queryForObject(
-                "SELECT anomaly_scoring_status FROM reconciliation_runs WHERE id = ?",
-                String.class,
-                runId);
+                String persistedStatus = jdbcTemplate.queryForObject(
+                                "SELECT status FROM reconciliation_runs WHERE id = ?",
+                                String.class,
+                                runId);
 
-        Integer failedCount = jdbcTemplate.queryForObject(
-                "SELECT anomaly_scoring_failed_count FROM reconciliation_runs WHERE id = ?",
-                Integer.class,
-                runId);
+                String scoringStatus = jdbcTemplate.queryForObject(
+                                "SELECT anomaly_scoring_status FROM reconciliation_runs WHERE id = ?",
+                                String.class,
+                                runId);
 
-        assertThat(persistedStatus).isEqualTo("COMPLETED");
-        assertThat(scoringStatus).isEqualTo("UNAVAILABLE");
-        assertThat(failedCount).isEqualTo(1);
+                Integer failedCount = jdbcTemplate.queryForObject(
+                                "SELECT anomaly_scoring_failed_count FROM reconciliation_runs WHERE id = ?",
+                                Integer.class,
+                                runId);
 
-        verify(anomalyScoringProvider)
-                .score(any(AnomalyFeatures.class));
-    }
+                assertThat(persistedStatus).isEqualTo("COMPLETED");
+                assertThat(scoringStatus).isEqualTo("UNAVAILABLE");
+                assertThat(failedCount).isEqualTo(1);
 
-    private String baseUrl() {
-        return "http://localhost:" + port;
-    }
+                verify(anomalyScoringProvider)
+                                .score(any(AnomalyFeatures.class));
+        }
+
+        private String baseUrl() {
+                return "http://localhost:" + port;
+        }
 }

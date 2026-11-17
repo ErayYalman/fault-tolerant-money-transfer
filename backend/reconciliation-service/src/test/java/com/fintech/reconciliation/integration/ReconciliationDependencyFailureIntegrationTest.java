@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,6 +39,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(ReconciliationTestSecurityConfiguration.class)
 class ReconciliationDependencyFailureIntegrationTest {
 
         @SuppressWarnings("resource")
@@ -176,6 +178,7 @@ class ReconciliationDependencyFailureIntegrationTest {
         private ResponseEntity<String> postManualRun() {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.setBearerAuth("operations-test-token");
 
                 String requestBody = """
                                 {

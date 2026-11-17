@@ -6,7 +6,7 @@ spring:
           issuer-uri: ${GATEWAY_KEYCLOAK_ISSUER:http://localhost:8180/realms/money-transfer}
           jwk-set-uri: ${GATEWAY_KEYCLOAK_JWKS_URL:http://localhost:8180/realms/money-transfer/protocol/openid-connect/certs}
           audiences:
-            - ${GATEWAY_TRANSFER_SERVICE_AUDIENCE:transfer-service}
+            - ${GATEWAY_SERVICE_OIDC_AUDIENCE:api-gateway}
           jws-algorithms:
             - RS256
   config:

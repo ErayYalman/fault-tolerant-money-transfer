@@ -64,7 +64,7 @@ public class GatewayTestSecurityConfiguration {
         return Jwt.withTokenValue(token)
                 .header("alg", "RS256")
                 .claim("iss", ISSUER)
-                .claim("aud", List.of("transfer-service"))
+                .claim("aud", List.of("api-gateway"))
                 .claim("azp", authorizedParty)
                 .claim("realm_access", Map.of(
                         "roles", roles))

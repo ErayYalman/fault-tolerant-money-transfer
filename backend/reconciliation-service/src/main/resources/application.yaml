@@ -1,6 +1,14 @@
 spring:
   security:
     oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${RECONCILIATION_KEYCLOAK_ISSUER:http://localhost:8180/realms/money-transfer}
+          jwk-set-uri: ${RECONCILIATION_KEYCLOAK_JWKS_URL:http://localhost:8180/realms/money-transfer/protocol/openid-connect/certs}
+          audiences:
+            - ${RECONCILIATION_SERVICE_OIDC_AUDIENCE:reconciliation-service}
+          jws-algorithms:
+            - RS256
       client:
         registration:
           reconciliation-service:

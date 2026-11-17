@@ -16,8 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +41,7 @@ import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancy;
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(ReconciliationTestSecurityConfiguration.class)
 class ReconciliationRunApiIntegrationTest {
 
         @SuppressWarnings("resource")
@@ -132,8 +135,13 @@ class ReconciliationRunApiIntegrationTest {
                 assertThat(status).isEqualTo("COMPLETED");
                 assertThat(discrepancyCount).isEqualTo(1);
 
-                ResponseEntity<String> detailsResponse = restTemplate.getForEntity(
+                HttpHeaders detailHeaders = new HttpHeaders();
+                detailHeaders.setBearerAuth("operations-test-token");
+
+                ResponseEntity<String> detailsResponse = restTemplate.exchange(
                                 baseUrl() + "/api/v1/reconciliation/runs/" + runId,
+                                HttpMethod.GET,
+                                new HttpEntity<>(detailHeaders),
                                 String.class);
 
                 assertThat(detailsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -174,17 +182,80 @@ class ReconciliationRunApiIntegrationTest {
 
         @Test
         void shouldReturnNotFoundForUnknownRun() {
-                ResponseEntity<String> response = restTemplate.getForEntity(
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth("operations-test-token");
+
+                ResponseEntity<String> response = restTemplate.exchange(
                                 baseUrl() + "/api/v1/reconciliation/runs/" + UUID.randomUUID(),
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
                                 String.class);
 
                 assertThat(response.getStatusCode())
                                 .isEqualTo(HttpStatus.NOT_FOUND);
         }
 
+        @Test
+        void shouldRejectManualRunWithoutBearerToken() {
+                ResponseEntity<String> response = postRun(
+                                "2026-10-20",
+                                null);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void shouldRejectCustomerFromManualReconciliation() {
+                ResponseEntity<String> response = postRun(
+                                "2026-10-20",
+                                "customer-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void shouldRejectOperationsRoleFromAnotherClient() {
+                ResponseEntity<String> response = postRun(
+                                "2026-10-20",
+                                "foreign-operations-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void shouldAllowAdminToAccessReconciliationRunEndpoint() {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth("admin-test-token");
+
+                ResponseEntity<String> response = restTemplate.exchange(
+                                baseUrl() + "/api/v1/reconciliation/runs/" + UUID.randomUUID(),
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                String.class);
+
+                // 404 means authentication and authorization succeeded,
+                // but the requested run does not exist.
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
         private ResponseEntity<String> postRun(String businessDate) {
+                return postRun(businessDate, "operations-test-token");
+        }
+
+        private ResponseEntity<String> postRun(
+                        String businessDate,
+                        String token) {
+
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
+
+                if (token != null) {
+                        headers.setBearerAuth(token);
+                }
 
                 String body = """
                                 {
