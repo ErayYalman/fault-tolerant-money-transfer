@@ -17,6 +17,8 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
+import jakarta.annotation.security.RolesAllowed;
+
 @Path("/internal/ledger")
 @Produces(MediaType.APPLICATION_JSON)
 public class LedgerQueryResource {
@@ -29,6 +31,7 @@ public class LedgerQueryResource {
     }
 
     @GET
+    @RolesAllowed("reconciliation-read")
     public List<LedgerEntryResponse> findLedgerEntries(
             @QueryParam("from") String from,
             @QueryParam("to") String to,

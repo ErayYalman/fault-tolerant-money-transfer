@@ -31,6 +31,7 @@ import com.fintech.payment.b.support.PaymentBPostgresTestResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 
 @QuarkusTest
@@ -87,6 +88,7 @@ class LedgerReadOnlyApiIntegrationTest {
     }
 
     @Test
+    @TestSecurity(user = "reconciliation-service", roles = { "reconciliation-read" })
     void shouldReturnLedgerEntriesInRangeWithStablePagination()
             throws Exception {
 
@@ -117,6 +119,7 @@ class LedgerReadOnlyApiIntegrationTest {
     }
 
     @Test
+    @TestSecurity(user = "reconciliation-service", roles = { "reconciliation-read" })
     void shouldRejectInvalidDateRange() throws Exception {
         URI uri = buildUri(TO, FROM, 0, 10);
 
@@ -216,4 +219,34 @@ class LedgerReadOnlyApiIntegrationTest {
             statement.executeUpdate();
         }
     }
+
+    @Test
+    void shouldRejectRequestWithoutAuthentication() throws Exception {
+        URI uri = buildUri(FROM, TO, 0, 10);
+
+        HttpResponse<String> response = HTTP_CLIENT.send(
+                HttpRequest.newBuilder(uri)
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(401, response.statusCode());
+    }
+
+    @Test
+    @TestSecurity(user = "customer", roles = { "CUSTOMER" })
+    void shouldForbidAuthenticatedUserWithoutReconciliationRole()
+            throws Exception {
+
+        URI uri = buildUri(FROM, TO, 0, 10);
+
+        HttpResponse<String> response = HTTP_CLIENT.send(
+                HttpRequest.newBuilder(uri)
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(403, response.statusCode());
+    }
+
 }
