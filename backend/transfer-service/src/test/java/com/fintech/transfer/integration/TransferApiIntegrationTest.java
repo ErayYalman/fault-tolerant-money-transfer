@@ -2,8 +2,11 @@ package com.fintech.transfer.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -67,6 +70,14 @@ class TransferApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void cleanDatabase() {
+        jdbcTemplate.update("DELETE FROM inbox_messages");
+        jdbcTemplate.update("DELETE FROM outbox_events");
+        jdbcTemplate.update("DELETE FROM saga_state");
+        jdbcTemplate.update("DELETE FROM transfers");
+    }
 
     @Test
     void shouldCreateTransfer() {
@@ -293,6 +304,182 @@ class TransferApiIntegrationTest {
         assertThat(missingTransferReadResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void shouldReturnOnlyTransfersOwnedByAuthenticatedCustomer() {
+        UUID firstTransferId = createTransfer(
+                "customer-test-token",
+                "history-own-1-");
+        UUID secondTransferId = createTransfer(
+                "customer-test-token",
+                "history-own-2-");
+        UUID thirdTransferId = createTransfer(
+                "customer-test-token",
+                "history-own-3-");
+
+        UUID otherCustomerTransferId = createTransfer(
+                "another-customer-test-token",
+                "history-other-1-");
+
+        ResponseEntity<String> response = getTransfers(
+                "customer-test-token",
+                0,
+                20);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        DocumentContext context = JsonPath.parse(response.getBody());
+
+        List<String> transferIds = context.read("$.content[*].transferId");
+
+        assertThat(transferIds)
+                .hasSize(3)
+                .containsExactlyInAnyOrder(
+                        firstTransferId.toString(),
+                        secondTransferId.toString(),
+                        thirdTransferId.toString())
+                .doesNotContain(otherCustomerTransferId.toString());
+
+        assertThat(response.getBody()).doesNotContain("ownerSubject");
+    }
+
+    @Test
+    void shouldReturnTransferHistoryWithStablePagination() {
+        UUID firstTransferId = createTransfer(
+                "customer-test-token",
+                "history-page-1-");
+        UUID secondTransferId = createTransfer(
+                "customer-test-token",
+                "history-page-2-");
+        UUID thirdTransferId = createTransfer(
+                "customer-test-token",
+                "history-page-3-");
+
+        ResponseEntity<String> firstPageResponse = getTransfers(
+                "customer-test-token",
+                0,
+                2);
+
+        assertThat(firstPageResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        DocumentContext firstPage = JsonPath.parse(firstPageResponse.getBody());
+
+        List<String> firstPageIds = firstPage.read("$.content[*].transferId");
+
+        assertThat(firstPageIds).hasSize(2);
+        assertThat(firstPage.read("$.page", Integer.class)).isZero();
+        assertThat(firstPage.read("$.size", Integer.class)).isEqualTo(2);
+        assertThat(firstPage.read("$.totalElements", Integer.class)).isEqualTo(3);
+        assertThat(firstPage.read("$.totalPages", Integer.class)).isEqualTo(2);
+
+        ResponseEntity<String> secondPageResponse = getTransfers(
+                "customer-test-token",
+                1,
+                2);
+
+        assertThat(secondPageResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        DocumentContext secondPage = JsonPath.parse(secondPageResponse.getBody());
+
+        List<String> secondPageIds = secondPage.read("$.content[*].transferId");
+
+        assertThat(secondPageIds).hasSize(1);
+        assertThat(secondPage.read("$.page", Integer.class)).isEqualTo(1);
+        assertThat(secondPage.read("$.size", Integer.class)).isEqualTo(2);
+        assertThat(secondPage.read("$.totalElements", Integer.class)).isEqualTo(3);
+        assertThat(secondPage.read("$.totalPages", Integer.class)).isEqualTo(2);
+
+        List<String> allIds = new ArrayList<>();
+        allIds.addAll(firstPageIds);
+        allIds.addAll(secondPageIds);
+
+        assertThat(allIds)
+                .hasSize(3)
+                .doesNotHaveDuplicates()
+                .containsExactlyInAnyOrder(
+                        firstTransferId.toString(),
+                        secondTransferId.toString(),
+                        thirdTransferId.toString());
+    }
+
+    @Test
+    void shouldReturnEmptyHistoryWhenCustomerHasNoTransfers() {
+        ResponseEntity<String> response = getTransfers(
+                "another-customer-test-token",
+                0,
+                20);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        DocumentContext context = JsonPath.parse(response.getBody());
+
+        assertThat(context.read("$.content[*].transferId", List.class)).isEmpty();
+        assertThat(context.read("$.page", Integer.class)).isZero();
+        assertThat(context.read("$.size", Integer.class)).isEqualTo(20);
+        assertThat(context.read("$.totalElements", Integer.class)).isZero();
+        assertThat(context.read("$.totalPages", Integer.class)).isZero();
+    }
+
+    @Test
+    void shouldRejectNegativePageNumber() {
+        ResponseEntity<String> response = getTransfers(
+                "customer-test-token",
+                -1,
+                20);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void shouldRejectPageSizeGreaterThanMaximum() {
+        ResponseEntity<String> response = getTransfers(
+                "customer-test-token",
+                0,
+                101);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void shouldRejectRequestWithoutBearerToken() {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "http://localhost:" + port + "/api/v1/transfers?page=0&size=20",
+                HttpMethod.GET,
+                new HttpEntity<>(new HttpHeaders()),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void shouldRejectOperationsUserFromTransferHistory() {
+        ResponseEntity<String> response = getTransfers(
+                "operations-test-token",
+                0,
+                20);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    private UUID createTransfer(String token, String idempotencyPrefix) {
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted(idempotencyPrefix + UUID.randomUUID());
+
+        ResponseEntity<String> response = postTransfer(request, token);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        return UUID.fromString(
+                JsonPath.parse(response.getBody())
+                        .read("$.transferId", String.class));
+    }
+
     private ResponseEntity<String> postTransfer(String body) {
         return postTransfer(body, "customer-test-token");
     }
@@ -314,6 +501,23 @@ class TransferApiIntegrationTest {
 
         return restTemplate.exchange(
                 "http://localhost:" + port + "/api/v1/transfers/" + transferId,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
+    }
+
+    private ResponseEntity<String> getTransfers(
+            String token,
+            int page,
+            int size) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        return restTemplate.exchange(
+                "http://localhost:" + port
+                        + "/api/v1/transfers?page=" + page
+                        + "&size=" + size,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class);

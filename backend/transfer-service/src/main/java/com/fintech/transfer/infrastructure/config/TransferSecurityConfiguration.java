@@ -118,6 +118,7 @@ public class TransferSecurityConfiguration {
 
                         .requestMatchers(
                                 HttpMethod.GET,
+                                "/api/v1/transfers",
                                 "/api/v1/transfers/**")
                         .hasRole("CUSTOMER")
 

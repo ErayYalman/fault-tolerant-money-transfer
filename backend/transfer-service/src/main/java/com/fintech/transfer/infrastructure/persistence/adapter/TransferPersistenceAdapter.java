@@ -5,11 +5,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import com.fintech.transfer.domain.model.Transfer;
+import com.fintech.transfer.domain.model.TransferPage;
 import com.fintech.transfer.domain.port.out.TransferRepository;
+import com.fintech.transfer.infrastructure.persistence.entity.TransferJpaEntity;
 import com.fintech.transfer.infrastructure.persistence.mapper.TransferPersistenceMapper;
 import com.fintech.transfer.infrastructure.persistence.repository.TransferJpaRepository;
 
@@ -77,6 +80,28 @@ public class TransferPersistenceAdapter implements TransferRepository {
                 return repository
                                 .findByIdAndOwnerSubject(transferId, ownerSubject)
                                 .map(mapper::toDomain);
+        }
+
+        @Override
+        public TransferPage findAllByOwnerSubject(
+                        String ownerSubject,
+                        int page,
+                        int size) {
+
+                Page<TransferJpaEntity> transferPage =
+                                repository.findByOwnerSubjectOrderByCreatedAtDescIdDesc(
+                                                ownerSubject,
+                                                PageRequest.of(page, size));
+
+                return new TransferPage(
+                                transferPage.getContent()
+                                                .stream()
+                                                .map(mapper::toDomain)
+                                                .toList(),
+                                transferPage.getNumber(),
+                                transferPage.getSize(),
+                                transferPage.getTotalElements(),
+                                transferPage.getTotalPages());
         }
 
 }

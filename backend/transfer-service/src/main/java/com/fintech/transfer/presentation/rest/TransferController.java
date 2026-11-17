@@ -11,12 +11,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fintech.transfer.domain.model.Transfer;
+import com.fintech.transfer.domain.model.TransferPage;
 import com.fintech.transfer.domain.port.in.GetTransferUseCase;
 import com.fintech.transfer.domain.port.in.InitiateTransferUseCase;
+import com.fintech.transfer.domain.port.in.ListTransfersUseCase;
 import com.fintech.transfer.presentation.dto.Request.CreateTransferRequest;
+import com.fintech.transfer.presentation.dto.Response.TransferPageResponse;
 import com.fintech.transfer.presentation.dto.Response.TransferResponse;
 import com.fintech.transfer.presentation.mapper.TransferApiMapper;
 
@@ -34,14 +38,17 @@ public class TransferController {
 
         private final InitiateTransferUseCase initiateTransferUseCase;
         private final GetTransferUseCase getTransferUseCase;
+        private final ListTransfersUseCase listTransfersUseCase;
         private final TransferApiMapper mapper;
 
         public TransferController(
                         InitiateTransferUseCase initiateTransferUseCase,
                         GetTransferUseCase getTransferUseCase,
+                        ListTransfersUseCase listTransfersUseCase,
                         TransferApiMapper mapper) {
                 this.initiateTransferUseCase = initiateTransferUseCase;
                 this.getTransferUseCase = getTransferUseCase;
+                this.listTransfersUseCase = listTransfersUseCase;
                 this.mapper = mapper;
         }
 
@@ -95,5 +102,29 @@ public class TransferController {
 
                 return ResponseEntity.ok(
                                 mapper.toResponse(transfer));
+        }
+
+        @GetMapping
+        public ResponseEntity<TransferPageResponse> listTransfers(
+                        @AuthenticationPrincipal Jwt jwt,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size) {
+
+                TransferPage transferPage = listTransfersUseCase.listByOwner(
+                                jwt.getSubject(),
+                                page,
+                                size);
+
+                TransferPageResponse response = new TransferPageResponse(
+                                transferPage.content()
+                                                .stream()
+                                                .map(mapper::toResponse)
+                                                .toList(),
+                                transferPage.page(),
+                                transferPage.size(),
+                                transferPage.totalElements(),
+                                transferPage.totalPages());
+
+                return ResponseEntity.ok(response);
         }
 }

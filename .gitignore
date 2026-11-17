@@ -33,3 +33,5 @@ storage/
 # Build / temporary
 *.tmp
 *.temp
+
+AGENTS.md

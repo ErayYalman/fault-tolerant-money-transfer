@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.fintech.transfer.domain.model.Transfer;
+import com.fintech.transfer.domain.model.TransferPage;
 
 public interface TransferRepository {
 
@@ -28,4 +29,10 @@ public interface TransferRepository {
     Optional<Transfer> findByIdAndOwnerSubject(
             UUID transferId,
             String ownerSubject);
+
+    TransferPage findAllByOwnerSubject(
+            String ownerSubject,
+            int page,
+            int size
+    );
 }

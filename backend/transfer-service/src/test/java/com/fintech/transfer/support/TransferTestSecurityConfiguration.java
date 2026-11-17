@@ -44,6 +44,13 @@ public class TransferTestSecurityConfiguration {
                                                                 "roles", List.of("CUSTOMER")))
                                                 .build();
 
+                                case "operations-test-token" -> builder
+                                                .subject("operations-user-1")
+                                                .claim("azp", "money-transfer-web")
+                                                .claim("realm_access", Map.of(
+                                                                "roles", List.of("OPERATIONS")))
+                                                .build();
+
                                 case "reconciliation-test-token" -> builder
                                                 .claim("azp", "reconciliation-service")
                                                 .claim("resource_access", Map.of(
