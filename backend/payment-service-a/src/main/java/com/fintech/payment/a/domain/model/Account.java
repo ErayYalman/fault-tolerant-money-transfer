@@ -15,6 +15,7 @@ public final class Account {
 
     private final UUID id;
     private final String accountNumber;
+    private final String ownerSubject;
     private final String currency;
     private final AccountStatus status;
 
@@ -30,6 +31,7 @@ public final class Account {
     private Account(
             UUID id,
             String accountNumber,
+            String ownerSubject,
             BigDecimal balance,
             String currency,
             AccountStatus status,
@@ -43,6 +45,14 @@ public final class Account {
         }
 
         this.accountNumber = accountNumber;
+
+        if (ownerSubject == null || ownerSubject.isBlank()) {
+            throw new IllegalArgumentException(
+                    "ownerSubject must not be blank");
+        }
+
+        this.ownerSubject = ownerSubject;
+
         this.balance = Objects.requireNonNull(
                 balance,
                 "balance must not be null");
@@ -71,6 +81,7 @@ public final class Account {
     public static Account rehydrate(
             UUID id,
             String accountNumber,
+            String ownerSubject,
             BigDecimal balance,
             String currency,
             AccountStatus status,
@@ -79,6 +90,7 @@ public final class Account {
         return new Account(
                 id,
                 accountNumber,
+                ownerSubject,
                 balance,
                 currency,
                 status,
@@ -188,6 +200,10 @@ public final class Account {
         return accountNumber;
     }
 
+    public String getOwnerSubject() {
+        return ownerSubject;
+    }
+
     public BigDecimal getBalance() {
         return balance;
     }
@@ -206,6 +222,10 @@ public final class Account {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isOwnedBy(String ownerSubject) {
+        return this.ownerSubject.equals(ownerSubject);
     }
 
     public record DebitResult(

@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.Objects;
 
 import com.fintech.payment.a.application.messaging.command.DebitCompensationCommand;
 import com.fintech.payment.a.application.messaging.command.DebitRequestedCommand;
@@ -20,6 +21,7 @@ public final class CommandFingerprint {
                 "debit-requested",
                 command.transferId().toString(),
                 command.correlationId().toString(),
+                Objects.toString(command.ownerSubject(), "<missing>"),
                 command.accountId().toString(),
                 command.amount().stripTrailingZeros().toPlainString(),
                 command.currency().strip().toUpperCase(Locale.ROOT));

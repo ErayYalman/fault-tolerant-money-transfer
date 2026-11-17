@@ -28,6 +28,9 @@ public class AccountJpaEntity {
     )
     private String accountNumber;
 
+    @Column(name = "owner_subject", nullable = false, length = 255)
+    private String ownerSubject;
+
     @Column(
             name = "balance",
             nullable = false,
@@ -67,6 +70,14 @@ public class AccountJpaEntity {
 
     public void setAccountNumber(String accountNumber) {
         this.accountNumber = accountNumber;
+    }
+
+    public String getOwnerSubject() {
+        return ownerSubject;
+    }
+
+    public void setOwnerSubject(String ownerSubject) {
+        this.ownerSubject = ownerSubject;
     }
 
     public BigDecimal getBalance() {

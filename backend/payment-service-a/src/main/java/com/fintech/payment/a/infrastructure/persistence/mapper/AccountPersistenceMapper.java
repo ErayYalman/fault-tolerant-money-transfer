@@ -11,6 +11,7 @@ public interface AccountPersistenceMapper {
         return Account.rehydrate(
                 entity.getId(),
                 entity.getAccountNumber(),
+                entity.getOwnerSubject(),
                 entity.getBalance(),
                 entity.getCurrency(),
                 entity.getStatus(),

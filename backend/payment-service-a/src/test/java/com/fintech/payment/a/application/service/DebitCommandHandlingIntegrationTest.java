@@ -30,6 +30,8 @@ import com.fintech.payment.a.application.messaging.command.DebitRequestedCommand
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class DebitCompensationHandlingIntegrationTest {
 
+        private static final String OWNER_SUBJECT = "account-owner-1";
+
         @SuppressWarnings("resource")
         @Container
         static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
@@ -243,7 +245,59 @@ class DebitCompensationHandlingIntegrationTest {
                 assertThat(countOutbox("debit-compensated")).isZero();
         }
 
+        @Test
+        void shouldRejectDebitWhenAccountBelongsToAnotherUser() {
+                UUID accountId = createAccount("100.00", "account-owner-1");
+
+                DebitRequestedCommand command = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"),
+                                "account-owner-2");
+
+                assertThat(debitHandlingService.handle(command))
+                                .isEqualTo(
+                                                DebitCommandHandlingService.Result.BUSINESS_FAILURE);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("100.00");
+
+                assertThat(countLedger("DEBIT")).isZero();
+                assertThat(countOutbox("debit-failed")).isEqualTo(1L);
+
+                assertThat(debitFailedReason())
+                                .isEqualTo("ACCOUNT_OWNERSHIP_MISMATCH");
+        }
+
+        @Test
+        void shouldRejectDebitWhenOwnerSubjectIsMissing() {
+                UUID accountId = createAccount("100.00");
+
+                DebitRequestedCommand command = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"),
+                                null);
+
+                assertThat(debitHandlingService.handle(command))
+                                .isEqualTo(
+                                                DebitCommandHandlingService.Result.BUSINESS_FAILURE);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("100.00");
+
+                assertThat(countLedger("DEBIT")).isZero();
+                assertThat(countOutbox("debit-failed")).isEqualTo(1L);
+
+                assertThat(debitFailedReason())
+                                .isEqualTo("OWNER_SUBJECT_MISSING");
+        }
+
         private UUID createAccount(String initialBalance) {
+                return createAccount(initialBalance, OWNER_SUBJECT);
+        }
+
+        private UUID createAccount(
+                        String initialBalance,
+                        String ownerSubject) {
                 UUID accountId = UUID.randomUUID();
 
                 jdbcTemplate.update(
@@ -251,16 +305,18 @@ class DebitCompensationHandlingIntegrationTest {
                                                 INSERT INTO accounts (
                                                     id,
                                                     account_number,
+                                                    owner_subject,
                                                     balance,
                                                     currency,
                                                     status,
                                                     version,
                                                     updated_at
                                                 )
-                                                VALUES (?, ?, ?, 'TRY', 'ACTIVE', 0, NOW())
+                                                VALUES (?, ?, ?, ?, 'TRY', 'ACTIVE', 0, NOW())
                                                 """,
                                 accountId,
                                 "TEST-" + UUID.randomUUID(),
+                                ownerSubject,
                                 new BigDecimal(initialBalance));
 
                 return accountId;
@@ -269,10 +325,18 @@ class DebitCompensationHandlingIntegrationTest {
         private DebitRequestedCommand debitCommand(
                         UUID accountId,
                         BigDecimal amount) {
+                return debitCommand(accountId, amount, OWNER_SUBJECT);
+        }
+
+        private DebitRequestedCommand debitCommand(
+                        UUID accountId,
+                        BigDecimal amount,
+                        String ownerSubject) {
                 return new DebitRequestedCommand(
                                 UUID.randomUUID(),
                                 UUID.randomUUID(),
                                 UUID.randomUUID(),
+                                ownerSubject,
                                 "debit-" + UUID.randomUUID(),
                                 accountId,
                                 amount,
@@ -317,6 +381,23 @@ class DebitCompensationHandlingIntegrationTest {
                                 "SELECT COUNT(*) FROM outbox_events WHERE event_type = ?",
                                 Long.class,
                                 eventType);
+        }
+
+        private long countLedger(String entryType) {
+                return jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM ledger_entries WHERE entry_type = ?",
+                                Long.class,
+                                entryType);
+        }
+
+        private String debitFailedReason() {
+                return jdbcTemplate.queryForObject(
+                                """
+                                                SELECT payload ->> 'failureReason'
+                                                FROM outbox_events
+                                                WHERE event_type = 'debit-failed'
+                                                """,
+                                String.class);
         }
 
         private BigDecimal ledgerBalance(

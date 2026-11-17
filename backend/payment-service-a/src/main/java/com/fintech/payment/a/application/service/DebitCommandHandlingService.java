@@ -78,6 +78,27 @@ public class DebitCommandHandlingService {
             return Result.BUSINESS_FAILURE;
         }
 
+        if (command.ownerSubject() == null
+                || command.ownerSubject().isBlank()) {
+
+            publishFailure(
+                    command,
+                    "OWNER_SUBJECT_MISSING",
+                    now);
+
+            return Result.BUSINESS_FAILURE;
+        }
+
+        if (!account.isOwnedBy(command.ownerSubject())) {
+
+            publishFailure(
+                    command,
+                    "ACCOUNT_OWNERSHIP_MISMATCH",
+                    now);
+
+            return Result.BUSINESS_FAILURE;
+        }
+
         Account.DebitResult debitResult;
 
         try {

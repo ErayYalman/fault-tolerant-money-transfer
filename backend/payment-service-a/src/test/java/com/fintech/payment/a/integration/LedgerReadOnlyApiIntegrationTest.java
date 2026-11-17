@@ -81,12 +81,13 @@ class LedgerReadOnlyApiIntegrationTest {
                 jdbcTemplate.update(
                                 """
                                                 INSERT INTO accounts (
-                                                    id, account_number, balance, currency, status
+                                                    id, account_number, owner_subject, balance, currency, status
                                                 )
-                                                VALUES (?, ?, ?, 'TRY', 'ACTIVE')
+                                                VALUES (?, ?, ?, ?, 'TRY', 'ACTIVE')
                                                 """,
                                 accountId,
                                 "LEDGER-API-" + accountId,
+                                "ledger-api-test-owner",
                                 new BigDecimal("1000.00"));
 
                 insertLedger(

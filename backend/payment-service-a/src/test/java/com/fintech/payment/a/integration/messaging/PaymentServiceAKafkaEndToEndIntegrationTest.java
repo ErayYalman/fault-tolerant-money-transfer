@@ -105,7 +105,8 @@ class PaymentServiceAKafkaEndToEndIntegrationTest {
             throws Exception {
 
         // Arrange: Bank A hesabında 100 TRY bulunsun.
-        UUID accountId = createAccount(new BigDecimal("100.00"));
+        String ownerSubject = "e2e-test-owner";
+        UUID accountId = createAccount(new BigDecimal("100.00"), ownerSubject);
         UUID transferId = UUID.randomUUID();
         UUID correlationId = UUID.randomUUID();
 
@@ -113,6 +114,7 @@ class PaymentServiceAKafkaEndToEndIntegrationTest {
                 UUID.randomUUID(),
                 correlationId,
                 transferId,
+                ownerSubject,
                 "debit-e2e-" + UUID.randomUUID(),
                 accountId,
                 new BigDecimal("25.00"),
@@ -261,7 +263,10 @@ class PaymentServiceAKafkaEndToEndIntegrationTest {
                 .isEqualTo(2L);
     }
 
-    private UUID createAccount(BigDecimal initialBalance) {
+    private UUID createAccount(
+            BigDecimal initialBalance,
+            String ownerSubject
+    ) {
         UUID accountId = UUID.randomUUID();
 
         jdbcTemplate.update(
@@ -269,16 +274,18 @@ class PaymentServiceAKafkaEndToEndIntegrationTest {
                 INSERT INTO accounts (
                     id,
                     account_number,
+                    owner_subject,
                     balance,
                     currency,
                     status,
                     version,
                     updated_at
                 )
-                VALUES (?, ?, ?, 'TRY', 'ACTIVE', 0, NOW())
+                VALUES (?, ?, ?, ?, 'TRY', 'ACTIVE', 0, NOW())
                 """,
                 accountId,
                 "E2E-" + UUID.randomUUID(),
+                ownerSubject,
                 initialBalance
         );
 

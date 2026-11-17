@@ -190,9 +190,20 @@ class TransferApiIntegrationTest {
                 Long.class,
                 transferId);
 
+        String outboxOwnerSubject = jdbcTemplate.queryForObject(
+                """
+                        SELECT payload ->> 'ownerSubject'
+                        FROM outbox_events
+                        WHERE aggregate_id = ?
+                          AND event_type = 'debit-requested'
+                        """,
+                String.class,
+                transferId);
+
         assertThat(status).isEqualTo("DEBIT_REQUESTED");
         assertThat(sagaCount).isEqualTo(1L);
         assertThat(outboxCount).isEqualTo(1L);
+        assertThat(outboxOwnerSubject).isEqualTo("customer-user-1");
     }
 
     @Test

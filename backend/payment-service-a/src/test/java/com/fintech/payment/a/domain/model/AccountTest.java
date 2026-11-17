@@ -25,6 +25,7 @@ class AccountTest {
                 return Account.rehydrate(
                                 UUID.randomUUID(),
                                 "BANK-A-001",
+                                "test-owner-subject",
                                 balance,
                                 "TRY",
                                 status,

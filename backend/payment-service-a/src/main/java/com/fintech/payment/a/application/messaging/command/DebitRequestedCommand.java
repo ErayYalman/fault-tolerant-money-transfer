@@ -8,6 +8,7 @@ public record DebitRequestedCommand(
         UUID messageId,
         UUID correlationId,
         UUID transferId,
+        String ownerSubject,
         String idempotencyKey,
         UUID accountId,
         BigDecimal amount,
