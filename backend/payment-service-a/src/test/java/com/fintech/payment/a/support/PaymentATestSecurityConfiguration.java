@@ -44,6 +44,34 @@ public class PaymentATestSecurityConfiguration {
                                 "roles", List.of("CUSTOMER")))
                         .build();
 
+                case "customer-a-test-token" -> builder
+                        .claim("sub", "customer-a-subject")
+                        .claim("azp", "money-transfer-web")
+                        .claim("realm_access", Map.of(
+                                "roles", List.of("CUSTOMER")))
+                        .build();
+
+                case "customer-b-test-token" -> builder
+                        .claim("sub", "customer-b-subject")
+                        .claim("azp", "money-transfer-web")
+                        .claim("realm_access", Map.of(
+                                "roles", List.of("CUSTOMER")))
+                        .build();
+
+                case "customer-empty-test-token" -> builder
+                        .claim("sub", "customer-empty-subject")
+                        .claim("azp", "money-transfer-web")
+                        .claim("realm_access", Map.of(
+                                "roles", List.of("CUSTOMER")))
+                        .build();
+
+                case "customer-no-role-test-token" -> builder
+                        .claim("sub", "customer-no-role-subject")
+                        .claim("azp", "money-transfer-web")
+                        .claim("realm_access", Map.of(
+                                "roles", List.of("OPERATIONS")))
+                        .build();
+
                 case "foreign-client-test-token" -> builder
                         .claim("azp", "another-client")
                         .claim("resource_access", Map.of(

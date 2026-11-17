@@ -1,11 +1,14 @@
 package com.fintech.payment.a.infrastructure.persistence.adapter;
 
 import com.fintech.payment.a.domain.model.Account;
+import com.fintech.payment.a.domain.model.AccountPage;
 import com.fintech.payment.a.domain.port.out.AccountRepository;
 import com.fintech.payment.a.infrastructure.persistence.entity.AccountJpaEntity;
 import com.fintech.payment.a.infrastructure.persistence.mapper.AccountPersistenceMapper;
 import com.fintech.payment.a.infrastructure.persistence.repository.AccountJpaRepository;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,5 +59,30 @@ public class AccountPersistenceAdapter implements AccountRepository {
          * Hibernate dirty checking ve @Version kontrolünü commit/flush
          * sırasında uygulayacak; ayrıca save() çağırmaya gerek yok.
          */
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AccountPage findAllByOwnerSubject(
+            String ownerSubject,
+            int page,
+            int size) {
+
+        Page<AccountJpaEntity> accountPage =
+                repository.findByOwnerSubjectOrderByAccountNumberAscIdAsc(
+                        ownerSubject,
+                        PageRequest.of(page, size)
+                );
+
+        return new AccountPage(
+                accountPage.getContent()
+                        .stream()
+                        .map(mapper::toDomain)
+                        .toList(),
+                accountPage.getNumber(),
+                accountPage.getSize(),
+                accountPage.getTotalElements(),
+                accountPage.getTotalPages()
+        );
     }
 }

@@ -24,6 +24,7 @@ public class PaymentASecurityConfiguration {
 
     private static final String RESOURCE_CLIENT_ID = "payment-service-a";
     private static final String RECONCILIATION_CLIENT_ID = "reconciliation-service";
+    private static final String WEB_CLIENT_ID = "money-transfer-web";
 
     @Bean
     public JwtAuthenticationConverter paymentAJwtAuthenticationConverter() {
@@ -31,10 +32,28 @@ public class PaymentASecurityConfiguration {
         Converter<Jwt, Collection<GrantedAuthority>> authoritiesConverter = jwt -> {
             Set<GrantedAuthority> authorities = new LinkedHashSet<>();
 
-            // Only the dedicated reconciliation machine client
-            // may use this API's reconciliation-read role.
-            if (!RECONCILIATION_CLIENT_ID.equals(
-                    jwt.getClaimAsString("azp"))) {
+            String authorizedParty = jwt.getClaimAsString("azp");
+
+            if (WEB_CLIENT_ID.equals(authorizedParty)) {
+                Object realmAccessClaim = jwt.getClaims().get("realm_access");
+
+                if (realmAccessClaim instanceof Map<?, ?> realmAccess) {
+                    Object rolesClaim = realmAccess.get("roles");
+
+                    if (rolesClaim instanceof Collection<?> roles) {
+                        for (Object role : roles) {
+                            if ("CUSTOMER".equals(role)) {
+                                authorities.add(
+                                        new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+                            }
+                        }
+                    }
+                }
+
+                return authorities;
+            }
+
+            if (!RECONCILIATION_CLIENT_ID.equals(authorizedParty)) {
                 return authorities;
             }
 
@@ -57,11 +76,9 @@ public class PaymentASecurityConfiguration {
             }
 
             for (Object role : roles) {
-                if (role instanceof String roleName
-                        && !roleName.isBlank()) {
+                if (role instanceof String roleName && !roleName.isBlank()) {
                     authorities.add(
-                            new SimpleGrantedAuthority(
-                                    "ROLE_" + roleName));
+                            new SimpleGrantedAuthority("ROLE_" + roleName));
                 }
             }
 
@@ -90,6 +107,12 @@ public class PaymentASecurityConfiguration {
                                 "/actuator/health",
                                 "/actuator/health/**")
                         .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/accounts",
+                                "/api/v1/accounts/**")
+                        .hasAuthority("ROLE_CUSTOMER")
 
                         .requestMatchers(
                                 HttpMethod.GET,
