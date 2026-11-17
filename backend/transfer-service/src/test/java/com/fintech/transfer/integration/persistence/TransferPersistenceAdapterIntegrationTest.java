@@ -15,6 +15,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
 import com.fintech.transfer.domain.model.Money;
 import com.fintech.transfer.domain.model.Transfer;
 import com.fintech.transfer.domain.model.TransferStatus;
@@ -26,106 +27,113 @@ import com.fintech.transfer.infrastructure.persistence.repository.TransferJpaRep
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class TransferPersistenceAdapterIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("transfer_test_db")
-            .withUsername("transfer_test_user")
-            .withPassword("transfer_test_password");
+        @SuppressWarnings("resource")
+        @Container
+        static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("transfer_test_db")
+                        .withUsername("transfer_test_user")
+                        .withPassword("transfer_test_password");
 
-    @DynamicPropertySource
-    static void registerDataSourceProperties(
-            DynamicPropertyRegistry registry) {
-        registry.add(
-                "spring.datasource.url",
-                POSTGRES::getJdbcUrl);
+        @DynamicPropertySource
+        static void registerDataSourceProperties(
+                        DynamicPropertyRegistry registry) {
+                registry.add(
+                                "spring.datasource.url",
+                                POSTGRES::getJdbcUrl);
 
-        registry.add(
-                "spring.datasource.username",
-                POSTGRES::getUsername);
+                registry.add(
+                                "spring.datasource.username",
+                                POSTGRES::getUsername);
 
-        registry.add(
-                "spring.datasource.password",
-                POSTGRES::getPassword);
-    }
+                registry.add(
+                                "spring.datasource.password",
+                                POSTGRES::getPassword);
+        }
 
-    @Autowired
-    private TransferPersistenceAdapter persistenceAdapter;
+        @Autowired
+        private TransferPersistenceAdapter persistenceAdapter;
 
-    @Autowired
-    private TransferJpaRepository jpaRepository;
+        @Autowired
+        private TransferJpaRepository jpaRepository;
 
-    @BeforeEach
-    void cleanDatabase() {
-        jpaRepository.deleteAll();
-    }
+        @BeforeEach
+        void cleanDatabase() {
+                jpaRepository.deleteAll();
+        }
 
-    @Test
-    void shouldSaveAndLoadTransfer() {
-        UUID transferId = UUID.randomUUID();
-        UUID correlationId = UUID.randomUUID();
-        UUID fromAccountId = UUID.randomUUID();
-        UUID toAccountId = UUID.randomUUID();
+        @Test
+        void shouldSaveAndLoadTransfer() {
+                UUID transferId = UUID.randomUUID();
+                UUID correlationId = UUID.randomUUID();
+                UUID fromAccountId = UUID.randomUUID();
+                UUID toAccountId = UUID.randomUUID();
 
-        Transfer transfer = Transfer.create(
-                transferId,
-                correlationId,
-                "repository-test-key",
-                fromAccountId,
-                toAccountId,
-                new Money(
-                        new BigDecimal("2500.00"),
-                        "TRY"),
-                java.time.Instant.now());
+                Transfer transfer = Transfer.create(
+                                transferId,
+                                correlationId,
+                                "repository-test-key",
+                                "customer-user-1",
+                                fromAccountId,
+                                toAccountId,
+                                new Money(
+                                                new BigDecimal("2500.00"),
+                                                "TRY"),
+                                java.time.Instant.now());
 
-        Transfer saved = persistenceAdapter.save(transfer);
+                Transfer saved = persistenceAdapter.save(transfer);
 
-        assertThat(saved.getId())
-                .isEqualTo(transferId);
+                assertThat(saved.getId())
+                                .isEqualTo(transferId);
 
-        Transfer loaded = persistenceAdapter.findById(transferId)
-                .orElseThrow();
+                Transfer loaded = persistenceAdapter.findById(transferId)
+                                .orElseThrow();
 
-        assertThat(loaded.getId())
-                .isEqualTo(transferId);
+                assertThat(loaded.getId())
+                                .isEqualTo(transferId);
 
-        assertThat(loaded.getCorrelationId())
-                .isEqualTo(correlationId);
+                assertThat(loaded.getCorrelationId())
+                                .isEqualTo(correlationId);
 
-        assertThat(loaded.getIdempotencyKey())
-                .isEqualTo("repository-test-key");
+                assertThat(loaded.getIdempotencyKey())
+                                .isEqualTo("repository-test-key");
 
-        assertThat(loaded.getMoney().amount())
-                .isEqualByComparingTo("2500.00");
+                assertThat(loaded.getOwnerSubject())
+                                .isEqualTo("customer-user-1");
 
-        assertThat(loaded.getMoney().currency())
-                .isEqualTo("TRY");
+                assertThat(loaded.getMoney().amount())
+                                .isEqualByComparingTo("2500.00");
 
-        assertThat(loaded.getStatus())
-                .isEqualTo(TransferStatus.PENDING);
-    }
+                assertThat(loaded.getMoney().currency())
+                                .isEqualTo("TRY");
 
-    @Test
-    void shouldFindTransferByIdempotencyKey() {
-        Transfer transfer = Transfer.create(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                "lookup-key",
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                new Money(
-                        new BigDecimal("100.00"),
-                        "TRY"),
-                java.time.Instant.now());
+                assertThat(loaded.getStatus())
+                                .isEqualTo(TransferStatus.PENDING);
+        }
 
-        persistenceAdapter.save(transfer);
+        @Test
+        void shouldFindTransferByIdempotencyKey() {
+                Transfer transfer = Transfer.create(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                "lookup-key",
+                                "customer-user-1",
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                new Money(
+                                                new BigDecimal("100.00"),
+                                                "TRY"),
+                                java.time.Instant.now());
 
-        assertThat(
-                persistenceAdapter
-                        .findByIdempotencyKey("lookup-key"))
-                .isPresent()
-                .get()
-                .extracting(Transfer::getId)
-                .isEqualTo(transfer.getId());
-    }
+                persistenceAdapter.save(transfer);
+
+                assertThat(
+                                persistenceAdapter
+                                                .findByOwnerSubjectAndIdempotencyKey(
+                                                                "customer-user-1",
+                                                                "lookup-key"))
+                                .isPresent()
+                                .get()
+                                .extracting(Transfer::getId)
+                                .isEqualTo(transfer.getId());
+        }
 }

@@ -316,6 +316,7 @@ class InternalTransferApiIntegrationTest {
                                                     status,
                                                     failure_reason,
                                                     idempotency_key,
+                                                    owner_subject,
                                                     started_at,
                                                     debit_requested_at,
                                                     debit_completed_at,
@@ -326,7 +327,7 @@ class InternalTransferApiIntegrationTest {
                                                     updated_at
                                                 )
                                                 VALUES (
-                                                    ?, ?, ?, ?, 10.00, 'TRY', ?, NULL, ?,
+                                                    ?, ?, ?, ?, 10.00, 'TRY', ?, NULL, ?, 'customer-user-1',
                                                     ?, ?, ?, ?, ?, ?, ?, ?
                                                 )
                                                 """,

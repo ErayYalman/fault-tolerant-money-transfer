@@ -53,6 +53,7 @@ public class TransferCreationService {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 command.idempotencyKey(),
+                command.ownerSubject(),
                 command.fromAccountId(),
                 command.toAccountId(),
                 new Money(

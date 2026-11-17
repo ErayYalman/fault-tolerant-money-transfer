@@ -1,10 +1,11 @@
 package com.fintech.transfer.infrastructure.persistence.mapper;
 
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import com.fintech.transfer.domain.model.Money;
 import com.fintech.transfer.domain.model.Transfer;
 import com.fintech.transfer.infrastructure.persistence.entity.TransferJpaEntity;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface TransferPersistenceMapper {
@@ -18,12 +19,12 @@ public interface TransferPersistenceMapper {
                 entity.getId(),
                 entity.getCorrelationId(),
                 entity.getIdempotencyKey(),
+                entity.getOwnerSubject(),
                 entity.getFromAccountId(),
                 entity.getToAccountId(),
                 new Money(
                         entity.getAmount(),
-                        entity.getCurrency()
-                ),
+                        entity.getCurrency()),
                 entity.getStatus(),
                 entity.getFailureReason(),
                 entity.getStartedAt(),
@@ -33,7 +34,6 @@ public interface TransferPersistenceMapper {
                 entity.getCreditCompletedAt(),
                 entity.getCompletedAt(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
-        );
+                entity.getUpdatedAt());
     }
 }

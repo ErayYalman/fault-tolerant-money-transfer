@@ -40,13 +40,6 @@ public class TransferPersistenceAdapter implements TransferRepository {
         }
 
         @Override
-        public Optional<Transfer> findByIdempotencyKey(
-                        String idempotencyKey) {
-                return repository.findByIdempotencyKey(idempotencyKey)
-                                .map(mapper::toDomain);
-        }
-
-        @Override
         public Optional<Transfer> findByCorrelationId(UUID correlationId) {
                 return repository.findByCorrelationId(correlationId)
                                 .map(mapper::toDomain);
@@ -66,6 +59,24 @@ public class TransferPersistenceAdapter implements TransferRepository {
                                 .stream()
                                 .map(mapper::toDomain)
                                 .toList();
+        }
+
+        @Override
+        public Optional<Transfer> findByOwnerSubjectAndIdempotencyKey(
+                        String ownerSubject,
+                        String idempotencyKey) {
+                return repository
+                                .findByOwnerSubjectAndIdempotencyKey(ownerSubject, idempotencyKey)
+                                .map(mapper::toDomain);
+        }
+
+        @Override
+        public Optional<Transfer> findByIdAndOwnerSubject(
+                        UUID transferId,
+                        String ownerSubject) {
+                return repository
+                                .findByIdAndOwnerSubject(transferId, ownerSubject)
+                                .map(mapper::toDomain);
         }
 
 }

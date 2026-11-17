@@ -28,140 +28,159 @@ import com.fintech.transfer.domain.port.out.TransferRepository;
 @ExtendWith(MockitoExtension.class)
 class TransferApplicationServiceTest {
 
-    @Mock
-    private TransferRepository transferRepository;
+        @Mock
+        private TransferRepository transferRepository;
 
-    @Mock
-    private TransferCreationService transferCreationService;
+        @Mock
+        private TransferCreationService transferCreationService;
 
-    private TransferApplicationService service;
+        private TransferApplicationService service;
 
-    @BeforeEach
-    void setUp() {
-        service = new TransferApplicationService(
-                transferRepository,
-                transferCreationService);
-    }
+        @BeforeEach
+        void setUp() {
+                service = new TransferApplicationService(
+                                transferRepository,
+                                transferCreationService);
+        }
 
-    @Test
-    void shouldCreateTransferWhenIdempotencyKeyDoesNotExist() {
-        UUID fromAccountId = UUID.randomUUID();
-        UUID toAccountId = UUID.randomUUID();
+        @Test
+        void shouldCreateTransferWhenIdempotencyKeyDoesNotExist() {
+                UUID fromAccountId = UUID.randomUUID();
+                UUID toAccountId = UUID.randomUUID();
 
-        InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
-                new BigDecimal("1500.00"),
-                "TRY",
-                fromAccountId,
-                toAccountId,
-                "unique-key");
+                InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
+                                new BigDecimal("1500.00"),
+                                "TRY",
+                                fromAccountId,
+                                toAccountId,
+                                "unique-key",
+                                "customer-user-1");
 
-        Transfer transfer = createTransfer(
-                fromAccountId,
-                toAccountId,
-                "unique-key");
+                Transfer transfer = createTransfer(
+                                fromAccountId,
+                                toAccountId,
+                                "unique-key");
 
-        when(transferRepository.findByIdempotencyKey("unique-key"))
-                .thenReturn(Optional.empty());
+                when(transferRepository.findByOwnerSubjectAndIdempotencyKey("customer-user-1", "unique-key"))
+                                .thenReturn(Optional.empty());
 
-        when(transferCreationService.create(command))
-                .thenReturn(transfer);
+                when(transferCreationService.create(command))
+                                .thenReturn(transfer);
 
-        InitiateTransferUseCase.CreateTransferResult result = service.execute(command);
+                InitiateTransferUseCase.CreateTransferResult result = service.execute(command);
 
-        assertThat(result.created())
-                .isTrue();
+                assertThat(result.created())
+                                .isTrue();
 
-        assertThat(result.transfer())
-                .isSameAs(transfer);
+                assertThat(result.transfer())
+                                .isSameAs(transfer);
 
-        verify(transferCreationService)
-                .create(command);
-    }
+                verify(transferCreationService)
+                                .create(command);
+        }
 
-    @Test
-    void shouldReturnExistingTransferForDuplicateIdempotencyKey() {
-        UUID fromAccountId = UUID.randomUUID();
-        UUID toAccountId = UUID.randomUUID();
+        @Test
+        void shouldReturnExistingTransferForDuplicateIdempotencyKey() {
+                UUID fromAccountId = UUID.randomUUID();
+                UUID toAccountId = UUID.randomUUID();
 
-        InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
-                new BigDecimal("1500.00"),
-                "TRY",
-                fromAccountId,
-                toAccountId,
-                "existing-key");
+                InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
+                                new BigDecimal("1500.00"),
+                                "TRY",
+                                fromAccountId,
+                                toAccountId,
+                                "existing-key",
+                                "customer-user-1");
 
-        Transfer existingTransfer = createTransfer(
-                fromAccountId,
-                toAccountId,
-                "existing-key");
+                Transfer existingTransfer = createTransfer(
+                                fromAccountId,
+                                toAccountId,
+                                "existing-key");
 
-        when(transferRepository.findByIdempotencyKey("existing-key"))
-                .thenReturn(Optional.of(existingTransfer));
+                when(transferRepository.findByOwnerSubjectAndIdempotencyKey("customer-user-1", "existing-key"))
+                                .thenReturn(Optional.of(existingTransfer));
 
-        InitiateTransferUseCase.CreateTransferResult result = service.execute(command);
+                InitiateTransferUseCase.CreateTransferResult result = service.execute(command);
 
-        assertThat(result.created())
-                .isFalse();
+                assertThat(result.created())
+                                .isFalse();
 
-        assertThat(result.transfer())
-                .isSameAs(existingTransfer);
+                assertThat(result.transfer())
+                                .isSameAs(existingTransfer);
 
-        verifyNoInteractions(transferCreationService);
-    }
+                verifyNoInteractions(transferCreationService);
+        }
 
-    @Test
-    void shouldReturnTransferById() {
-        UUID transferId = UUID.randomUUID();
+        @Test
+        void shouldReturnTransferById() {
+                UUID transferId = UUID.randomUUID();
+                String ownerSubject = "customer-user-1";
 
-        Transfer transfer = Transfer.create(
-                transferId,
-                UUID.randomUUID(),
-                "get-key",
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                new Money(
-                        new BigDecimal("100.00"),
-                        "TRY"),
-                Instant.now());
+                Transfer transfer = Transfer.create(
+                                transferId,
+                                UUID.randomUUID(),
+                                "get-key",
+                                ownerSubject,
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                new Money(
+                                                new BigDecimal("100.00"),
+                                                "TRY"),
+                                Instant.now());
 
-        when(transferRepository.findById(transferId))
-                .thenReturn(Optional.of(transfer));
+                when(transferRepository.findByIdAndOwnerSubject(transferId, ownerSubject))
+                                .thenReturn(Optional.of(transfer));
 
-        Transfer result = service.getById(transferId);
+                Transfer result = service.getById(transferId, ownerSubject);
 
-        assertThat(result)
-                .isSameAs(transfer);
-    }
+                assertThat(result)
+                                .isSameAs(transfer);
+        }
 
-    @Test
-    void shouldThrowWhenTransferDoesNotExist() {
-        UUID transferId = UUID.randomUUID();
+        @Test
+        void shouldThrowWhenTransferDoesNotExist() {
+                UUID transferId = UUID.randomUUID();
+                String ownerSubject = "customer-user-1";
 
-        when(transferRepository.findById(transferId))
-                .thenReturn(Optional.empty());
+                when(transferRepository.findByIdAndOwnerSubject(transferId, ownerSubject))
+                                .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.getById(transferId))
-                .isInstanceOf(
-                        
-                    TransferNotFoundException.class);
+                assertThatThrownBy(() -> service.getById(transferId, ownerSubject))
+                                .isInstanceOf(TransferNotFoundException.class);
 
-        verify(transferRepository)
-                .findById(transferId);
-    }
+                verify(transferRepository)
+                                .findByIdAndOwnerSubject(transferId, ownerSubject);
+        }
 
-    private Transfer createTransfer(
-            UUID fromAccountId,
-            UUID toAccountId,
-            String idempotencyKey) {
-        return Transfer.create(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                idempotencyKey,
-                fromAccountId,
-                toAccountId,
-                new Money(
-                        new BigDecimal("1500.00"),
-                        "TRY"),
-                Instant.now());
-    }
+        @Test
+        void shouldThrowWhenTransferBelongsToDifferentOwner() {
+                UUID transferId = UUID.randomUUID();
+                String requesterSubject = "customer-user-2";
+
+                when(transferRepository.findByIdAndOwnerSubject(transferId, requesterSubject))
+                                .thenReturn(Optional.empty());
+
+                assertThatThrownBy(() -> service.getById(transferId, requesterSubject))
+                                .isInstanceOf(TransferNotFoundException.class);
+
+                verify(transferRepository)
+                                .findByIdAndOwnerSubject(transferId, requesterSubject);
+        }
+
+        private Transfer createTransfer(
+                        UUID fromAccountId,
+                        UUID toAccountId,
+                        String idempotencyKey) {
+                return Transfer.create(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                idempotencyKey,
+                                "customer-user-1",
+                                fromAccountId,
+                                toAccountId,
+                                new Money(
+                                                new BigDecimal("1500.00"),
+                                                "TRY"),
+                                Instant.now());
+        }
 }

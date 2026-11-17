@@ -31,87 +31,88 @@ import com.fintech.transfer.infrastructure.persistence.repository.TransferJpaRep
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class SagaStatePersistenceAdapterIntegrationTest {
 
-    @SuppressWarnings("resource")
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("transfer_saga_test_db")
-            .withUsername("transfer_saga_test_user")
-            .withPassword("transfer_saga_test_password");
+        @SuppressWarnings("resource")
+        @Container
+        static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("transfer_saga_test_db")
+                        .withUsername("transfer_saga_test_user")
+                        .withPassword("transfer_saga_test_password");
 
-    @DynamicPropertySource
-    static void registerDataSourceProperties(
-            DynamicPropertyRegistry registry) {
-        registry.add(
-                "spring.datasource.url",
-                POSTGRES::getJdbcUrl);
+        @DynamicPropertySource
+        static void registerDataSourceProperties(
+                        DynamicPropertyRegistry registry) {
+                registry.add(
+                                "spring.datasource.url",
+                                POSTGRES::getJdbcUrl);
 
-        registry.add(
-                "spring.datasource.username",
-                POSTGRES::getUsername);
+                registry.add(
+                                "spring.datasource.username",
+                                POSTGRES::getUsername);
 
-        registry.add(
-                "spring.datasource.password",
-                POSTGRES::getPassword);
-    }
+                registry.add(
+                                "spring.datasource.password",
+                                POSTGRES::getPassword);
+        }
 
-    @Autowired
-    private SagaStateRepository sagaStateRepository;
+        @Autowired
+        private SagaStateRepository sagaStateRepository;
 
-    @Autowired
-    private SagaStateJpaRepository sagaStateJpaRepository;
+        @Autowired
+        private SagaStateJpaRepository sagaStateJpaRepository;
 
-    @Autowired
-    private TransferPersistenceAdapter transferPersistenceAdapter;
+        @Autowired
+        private TransferPersistenceAdapter transferPersistenceAdapter;
 
-    @Autowired
-    private TransferJpaRepository transferJpaRepository;
+        @Autowired
+        private TransferJpaRepository transferJpaRepository;
 
-    @BeforeEach
-    void cleanDatabase() {
-        sagaStateJpaRepository.deleteAll();
-        transferJpaRepository.deleteAll();
-    }
+        @BeforeEach
+        void cleanDatabase() {
+                sagaStateJpaRepository.deleteAll();
+                transferJpaRepository.deleteAll();
+        }
 
-    @Test
-    void shouldSaveAndLoadSagaState() {
-        UUID transferId = UUID.randomUUID();
+        @Test
+        void shouldSaveAndLoadSagaState() {
+                UUID transferId = UUID.randomUUID();
 
-        Transfer transfer = Transfer.create(
-                transferId,
-                UUID.randomUUID(),
-                "saga-test-idempotency-key",
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                new Money(
-                        new BigDecimal("100.00"),
-                        "TRY"),
-                Instant.now());
+                Transfer transfer = Transfer.create(
+                                transferId,
+                                UUID.randomUUID(),
+                                "saga-test-idempotency-key",
+                                "customer-user-1",
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                new Money(
+                                                new BigDecimal("100.00"),
+                                                "TRY"),
+                                Instant.now());
 
-        transferPersistenceAdapter.save(transfer);
+                transferPersistenceAdapter.save(transfer);
 
-        SagaState sagaState = SagaState.start(
-                UUID.randomUUID(),
-                transferId,
-                Instant.now());
+                SagaState sagaState = SagaState.start(
+                                UUID.randomUUID(),
+                                transferId,
+                                Instant.now());
 
-        sagaState.putPayload(
-                "test",
-                "value",
-                Instant.now());
+                sagaState.putPayload(
+                                "test",
+                                "value",
+                                Instant.now());
 
-        sagaStateRepository.save(sagaState);
+                sagaStateRepository.save(sagaState);
 
-        SagaState loaded = sagaStateRepository
-                .findByTransferId(transferId)
-                .orElseThrow();
+                SagaState loaded = sagaStateRepository
+                                .findByTransferId(transferId)
+                                .orElseThrow();
 
-        assertThat(loaded.getTransferId())
-                .isEqualTo(transferId);
+                assertThat(loaded.getTransferId())
+                                .isEqualTo(transferId);
 
-        assertThat(loaded.getCurrentStep())
-                .isEqualTo(SagaStep.DEBIT);
+                assertThat(loaded.getCurrentStep())
+                                .isEqualTo(SagaStep.DEBIT);
 
-        assertThat(loaded.getPayload())
-                .containsEntry("test", "value");
-    }
+                assertThat(loaded.getPayload())
+                                .containsEntry("test", "value");
+        }
 }

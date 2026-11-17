@@ -1,16 +1,17 @@
 package com.fintech.transfer.domain.model;
 
-import com.fintech.transfer.domain.exception.InvalidTransferStateTransitionException;
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+
+import com.fintech.transfer.domain.exception.InvalidTransferStateTransitionException;
 
 public final class Transfer {
 
     private final UUID id;
     private final UUID correlationId;
     private final String idempotencyKey;
+    private final String ownerSubject;
 
     private final UUID fromAccountId;
     private final UUID toAccountId;
@@ -34,6 +35,7 @@ public final class Transfer {
             UUID id,
             UUID correlationId,
             String idempotencyKey,
+            String ownerSubject,
             UUID fromAccountId,
             UUID toAccountId,
             Money money,
@@ -46,11 +48,17 @@ public final class Transfer {
             Instant creditCompletedAt,
             Instant completedAt,
             Instant createdAt,
-            Instant updatedAt
-    ) {
+            Instant updatedAt) {
         this.id = Objects.requireNonNull(id);
         this.correlationId = Objects.requireNonNull(correlationId);
         this.idempotencyKey = Objects.requireNonNull(idempotencyKey);
+
+        if (ownerSubject == null || ownerSubject.isBlank()) {
+            throw new IllegalArgumentException(
+                    "ownerSubject must not be blank");
+        }
+        this.ownerSubject = ownerSubject;
+
         this.fromAccountId = Objects.requireNonNull(fromAccountId);
         this.toAccountId = Objects.requireNonNull(toAccountId);
         this.money = Objects.requireNonNull(money);
@@ -75,17 +83,18 @@ public final class Transfer {
             UUID id,
             UUID correlationId,
             String idempotencyKey,
+            String ownerSubject,
             UUID fromAccountId,
             UUID toAccountId,
             Money money,
-            Instant now
-    ) {
+            Instant now) {
         Objects.requireNonNull(now);
 
         return new Transfer(
                 id,
                 correlationId,
                 idempotencyKey,
+                ownerSubject,
                 fromAccountId,
                 toAccountId,
                 money,
@@ -98,14 +107,14 @@ public final class Transfer {
                 null,
                 null,
                 now,
-                now
-        );
+                now);
     }
 
     public static Transfer rehydrate(
             UUID id,
             UUID correlationId,
             String idempotencyKey,
+            String ownerSubject,
             UUID fromAccountId,
             UUID toAccountId,
             Money money,
@@ -118,12 +127,12 @@ public final class Transfer {
             Instant creditCompletedAt,
             Instant completedAt,
             Instant createdAt,
-            Instant updatedAt
-    ) {
+            Instant updatedAt) {
         return new Transfer(
                 id,
                 correlationId,
                 idempotencyKey,
+                ownerSubject,
                 fromAccountId,
                 toAccountId,
                 money,
@@ -136,8 +145,7 @@ public final class Transfer {
                 creditCompletedAt,
                 completedAt,
                 createdAt,
-                updatedAt
-        );
+                updatedAt);
     }
 
     public void requestDebit(Instant now) {
@@ -152,8 +160,7 @@ public final class Transfer {
 
     public void failDebit(
             String failureReason,
-            Instant now
-    ) {
+            Instant now) {
         validateFailureReason(failureReason);
 
         transitionTo(TransferStatus.DEBIT_FAILED, now);
@@ -176,8 +183,7 @@ public final class Transfer {
 
     public void failCredit(
             String failureReason,
-            Instant now
-    ) {
+            Instant now) {
         validateFailureReason(failureReason);
 
         transitionTo(TransferStatus.CREDIT_FAILED, now);
@@ -198,16 +204,14 @@ public final class Transfer {
 
     private void transitionTo(
             TransferStatus target,
-            Instant now
-    ) {
+            Instant now) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(now);
 
         if (!status.canTransitionTo(target)) {
             throw new InvalidTransferStateTransitionException(
                     status,
-                    target
-            );
+                    target);
         }
 
         this.status = target;
@@ -215,20 +219,17 @@ public final class Transfer {
     }
 
     private void validateFailureReason(
-            String failureReason
-    ) {
+            String failureReason) {
         if (failureReason == null || failureReason.isBlank()) {
             throw new IllegalArgumentException(
-                    "failureReason must not be blank"
-            );
+                    "failureReason must not be blank");
         }
     }
 
     private void validateAccountRelationship() {
         if (fromAccountId.equals(toAccountId)) {
             throw new IllegalArgumentException(
-                    "fromAccountId and toAccountId must be different"
-            );
+                    "fromAccountId and toAccountId must be different");
         }
     }
 
@@ -242,6 +243,10 @@ public final class Transfer {
 
     public String getIdempotencyKey() {
         return idempotencyKey;
+    }
+
+    public String getOwnerSubject() {
+        return ownerSubject;
     }
 
     public UUID getFromAccountId() {

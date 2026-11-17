@@ -15,11 +15,17 @@ public interface TransferRepository {
 
     Optional<Transfer> findByCorrelationId(UUID correlationId);
 
-    Optional<Transfer> findByIdempotencyKey(String idempotencyKey);
+    Optional<Transfer> findByOwnerSubjectAndIdempotencyKey(
+            String ownerSubject,
+            String idempotencyKey);
 
     List<Transfer> findByLifecycleRange(
             Instant fromInclusive,
             Instant toExclusive,
             int page,
             int size);
+
+    Optional<Transfer> findByIdAndOwnerSubject(
+            UUID transferId,
+            String ownerSubject);
 }

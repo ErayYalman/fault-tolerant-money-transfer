@@ -47,4 +47,12 @@ public interface TransferJpaRepository
             @Param("fromInclusive") Instant fromInclusive,
             @Param("toExclusive") Instant toExclusive,
             Pageable pageable);
+
+    Optional<TransferJpaEntity> findByOwnerSubjectAndIdempotencyKey(
+            String ownerSubject,
+            String idempotencyKey);
+
+    Optional<TransferJpaEntity> findByIdAndOwnerSubject(
+            UUID id,
+            String ownerSubject);
 }

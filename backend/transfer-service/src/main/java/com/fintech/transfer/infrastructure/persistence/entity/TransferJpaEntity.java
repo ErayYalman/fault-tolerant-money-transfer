@@ -1,16 +1,17 @@
 package com.fintech.transfer.infrastructure.persistence.entity;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
 import com.fintech.transfer.domain.model.TransferStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "transfers")
@@ -41,7 +42,7 @@ public class TransferJpaEntity {
     @Column(name = "failure_reason")
     private String failureReason;
 
-    @Column(name = "idempotency_key", nullable = false, unique = true, length = 100)
+    @Column(name = "idempotency_key", nullable = false, length = 100)
     private String idempotencyKey;
 
     @Column(name = "started_at")
@@ -67,6 +68,9 @@ public class TransferJpaEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "owner_subject", nullable = false, length = 255)
+    private String ownerSubject;
 
     public TransferJpaEntity() {
     }
@@ -205,5 +209,13 @@ public class TransferJpaEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getOwnerSubject() {
+        return ownerSubject;
+    }
+
+    public void setOwnerSubject(String ownerSubject) {
+        this.ownerSubject = ownerSubject;
     }
 }

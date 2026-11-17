@@ -1,26 +1,25 @@
 package com.fintech.transfer.domain.port.in;
 
-import com.fintech.transfer.domain.model.Transfer;
-
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import com.fintech.transfer.domain.model.Transfer;
+
 public interface InitiateTransferUseCase {
 
-    CreateTransferResult execute(InitiateTransferCommand command);
+        CreateTransferResult execute(InitiateTransferCommand command);
 
-    record InitiateTransferCommand(
-            BigDecimal amount,
-            String currency,
-            UUID fromAccountId,
-            UUID toAccountId,
-            String idempotencyKey
-    ) {
-    }
+        record InitiateTransferCommand(
+                        BigDecimal amount,
+                        String currency,
+                        UUID fromAccountId,
+                        UUID toAccountId,
+                        String idempotencyKey,
+                        String ownerSubject) {
+        }
 
-    record CreateTransferResult(
-            Transfer transfer,
-            boolean created
-    ) {
-    }
+        record CreateTransferResult(
+                        Transfer transfer,
+                        boolean created) {
+        }
 }

@@ -298,6 +298,7 @@ class TransferSagaOrchestratorTest {
                                 UUID.randomUUID(),
                                 UUID.randomUUID(),
                                 "saga-" + UUID.randomUUID(),
+                                "customer-user-1",
                                 UUID.randomUUID(),
                                 UUID.randomUUID(),
                                 new Money(

@@ -11,18 +11,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import com.fintech.transfer.application.messaging.event.CreditFailedEvent;
-import com.fintech.transfer.application.messaging.event.DebitCompensatedEvent;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fintech.transfer.application.messaging.event.DebitCompletedEvent;
-import com.fintech.transfer.application.outbox.OutboxRelay;
-import com.fintech.transfer.application.service.TransferCreationService;
-import com.fintech.transfer.domain.model.Transfer;
-import com.fintech.transfer.domain.port.in.InitiateTransferUseCase;
-import com.fintech.transfer.infrastructure.messaging.kafka.TransferKafkaTopics;
-
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -41,6 +29,17 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fintech.transfer.application.messaging.event.CreditFailedEvent;
+import com.fintech.transfer.application.messaging.event.DebitCompensatedEvent;
+import com.fintech.transfer.application.messaging.event.DebitCompletedEvent;
+import com.fintech.transfer.application.outbox.OutboxRelay;
+import com.fintech.transfer.application.service.TransferCreationService;
+import com.fintech.transfer.domain.model.Transfer;
+import com.fintech.transfer.domain.port.in.InitiateTransferUseCase;
+import com.fintech.transfer.infrastructure.messaging.kafka.TransferKafkaTopics;
 
 @Testcontainers
 @SpringBootTest(properties = {
@@ -108,7 +107,8 @@ class TransferKafkaEndToEndIntegrationTest {
                                                 "TRY",
                                                 UUID.randomUUID(),
                                                 UUID.randomUUID(),
-                                                "kafka-e2e-" + UUID.randomUUID()));
+                                                "kafka-e2e-" + UUID.randomUUID(),
+                                                "customer-user-1"));
 
                 assertThat(transfer.getStatus().name())
                                 .isEqualTo("DEBIT_REQUESTED");
@@ -216,7 +216,8 @@ class TransferKafkaEndToEndIntegrationTest {
                                                 "TRY",
                                                 UUID.randomUUID(),
                                                 UUID.randomUUID(),
-                                                "kafka-compensation-" + UUID.randomUUID()));
+                                                "kafka-compensation-" + UUID.randomUUID(),
+                                                "customer-user-1"));
 
                 assertThat(transfer.getStatus().name())
                                 .isEqualTo("DEBIT_REQUESTED");

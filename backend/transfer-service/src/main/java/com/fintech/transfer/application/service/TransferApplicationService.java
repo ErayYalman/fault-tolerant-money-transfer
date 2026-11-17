@@ -1,15 +1,16 @@
 package com.fintech.transfer.application.service;
 
+import java.util.UUID;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fintech.transfer.domain.exception.TransferNotFoundException;
 import com.fintech.transfer.domain.model.Transfer;
 import com.fintech.transfer.domain.port.in.GetTransferUseCase;
 import com.fintech.transfer.domain.port.in.InitiateTransferUseCase;
 import com.fintech.transfer.domain.port.out.TransferRepository;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 public class TransferApplicationService implements InitiateTransferUseCase, GetTransferUseCase {
@@ -28,7 +29,9 @@ public class TransferApplicationService implements InitiateTransferUseCase, GetT
         public CreateTransferResult execute(
                         InitiateTransferCommand command) {
                 return transferRepository
-                                .findByIdempotencyKey(command.idempotencyKey())
+                                .findByOwnerSubjectAndIdempotencyKey(
+                                                command.ownerSubject(),
+                                                command.idempotencyKey())
                                 .map(existingTransfer -> new CreateTransferResult(
                                                 existingTransfer,
                                                 false))
@@ -46,7 +49,9 @@ public class TransferApplicationService implements InitiateTransferUseCase, GetT
                 } catch (DataIntegrityViolationException exception) {
 
                         return transferRepository
-                                        .findByIdempotencyKey(command.idempotencyKey())
+                                        .findByOwnerSubjectAndIdempotencyKey(
+                                                        command.ownerSubject(),
+                                                        command.idempotencyKey())
                                         .map(existingTransfer -> new CreateTransferResult(
                                                         existingTransfer,
                                                         false))
@@ -56,9 +61,9 @@ public class TransferApplicationService implements InitiateTransferUseCase, GetT
 
         @Override
         @Transactional(readOnly = true)
-        public Transfer getById(UUID transferId) {
+        public Transfer getById(UUID transferId, String ownerSubject) {
                 return transferRepository
-                                .findById(transferId)
+                                .findByIdAndOwnerSubject(transferId, ownerSubject)
                                 .orElseThrow(
                                                 () -> new TransferNotFoundException(transferId));
         }

@@ -4,6 +4,8 @@ import java.net.URI;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,9 +59,11 @@ public class TransferController {
         })
         @PostMapping
         public ResponseEntity<TransferResponse> createTransfer(
-                        @Valid @RequestBody CreateTransferRequest request) {
+                        @Valid @RequestBody CreateTransferRequest request,
+                        @AuthenticationPrincipal Jwt jwt) {
+
                 InitiateTransferUseCase.CreateTransferResult result = initiateTransferUseCase.execute(
-                                mapper.toCommand(request));
+                                mapper.toCommand(request, jwt.getSubject()));
 
                 TransferResponse response = mapper.toResponse(result.transfer());
 
@@ -82,8 +86,12 @@ public class TransferController {
         })
         @GetMapping("/{id}")
         public ResponseEntity<TransferResponse> getTransfer(
-                        @Parameter(description = "Transfer UUID", required = true) @PathVariable UUID id) {
-                Transfer transfer = getTransferUseCase.getById(id);
+                        @Parameter(description = "Transfer UUID", required = true) @PathVariable UUID id,
+                        @AuthenticationPrincipal Jwt jwt) {
+
+                Transfer transfer = getTransferUseCase.getById(
+                                id,
+                                jwt.getSubject());
 
                 return ResponseEntity.ok(
                                 mapper.toResponse(transfer));
