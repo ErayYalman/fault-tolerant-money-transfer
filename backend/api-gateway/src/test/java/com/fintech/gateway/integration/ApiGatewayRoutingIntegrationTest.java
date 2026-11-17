@@ -63,6 +63,9 @@ class ApiGatewayRoutingIntegrationTest {
                                 "GATEWAY_TRANSFER_SERVICE_BASE_URL",
                                 () -> "http://127.0.0.1:" + UPSTREAM.getAddress().getPort());
                 registry.add(
+                                "GATEWAY_RECONCILIATION_SERVICE_BASE_URL",
+                                () -> "http://127.0.0.1:" + UPSTREAM.getAddress().getPort());
+                registry.add(
                                 "GATEWAY_RESPONSE_TIMEOUT",
                                 () -> "2000ms");
         }
@@ -128,13 +131,12 @@ class ApiGatewayRoutingIntegrationTest {
         }
 
         @Test
-        void shouldNotExposeInternalOrReconciliationRoutes()
+        void shouldNotExposeInternalRoutes()
                         throws Exception {
 
                 String[] internalPaths = {
                                 "/internal/transfers",
                                 "/internal/ledger",
-                                "/api/v1/reconciliation/run",
                                 "/score",
                                 "/train"
                 };
@@ -147,6 +149,122 @@ class ApiGatewayRoutingIntegrationTest {
                                         .isEqualTo(403);
                 }
 
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldForwardReconciliationReadForOperationsWithoutChangingPathOrAuthorization()
+                        throws Exception {
+
+                UPSTREAM_STATUS.set(200);
+                UPSTREAM_RESPONSE_BODY.set(
+                                """
+                                                {
+                                                  "runId": "11111111-1111-1111-1111-111111111111",
+                                                  "status": "COMPLETED"
+                                                }
+                                                """);
+
+                String path = "/api/v1/reconciliation/runs/11111111-1111-1111-1111-111111111111";
+
+                HttpResponse<String> response = sendGet(
+                                path,
+                                "operations-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).contains("COMPLETED");
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(1);
+                assertThat(LAST_METHOD.get()).isEqualTo("GET");
+                assertThat(LAST_PATH.get()).isEqualTo(path);
+                assertThat(LAST_AUTHORIZATION.get())
+                                .isEqualTo("Bearer operations-test-token");
+        }
+
+        @Test
+        void shouldForwardManualReconciliationForAdminWithoutChangingPathOrAuthorization()
+                        throws Exception {
+
+                UPSTREAM_STATUS.set(200);
+                UPSTREAM_RESPONSE_BODY.set(
+                                """
+                                                {
+                                                  "runId": "22222222-2222-2222-2222-222222222222",
+                                                  "status": "COMPLETED"
+                                                }
+                                                """);
+
+                String requestBody = """
+                                {
+                                  "businessDate": "2026-10-20"
+                                }
+                                """;
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(
+                                                gatewayBaseUrl() + "/api/v1/reconciliation/run"))
+                                .header("Content-Type", "application/json")
+                                .header("Authorization", "Bearer admin-test-token")
+                                .timeout(Duration.ofSeconds(5))
+                                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).contains("COMPLETED");
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(1);
+                assertThat(LAST_METHOD.get()).isEqualTo("POST");
+                assertThat(LAST_PATH.get()).isEqualTo("/api/v1/reconciliation/run");
+                assertThat(LAST_BODY.get()).isEqualTo(requestBody);
+                assertThat(LAST_AUTHORIZATION.get())
+                                .isEqualTo("Bearer admin-test-token");
+        }
+
+        @Test
+        void shouldRejectCustomerFromReconciliationRoutes()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/reconciliation/runs/11111111-1111-1111-1111-111111111111",
+                                "customer-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectOperationsRoleFromAnotherClient()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/reconciliation/runs/11111111-1111-1111-1111-111111111111",
+                                "foreign-operations-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectReconciliationRequestWithoutBearerToken()
+                        throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(
+                                                gatewayBaseUrl()
+                                                                + "/api/v1/reconciliation/runs/11111111-1111-1111-1111-111111111111"))
+                                .timeout(Duration.ofSeconds(5))
+                                .GET()
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(401);
                 assertThat(REQUEST_COUNT.get()).isZero();
         }
 

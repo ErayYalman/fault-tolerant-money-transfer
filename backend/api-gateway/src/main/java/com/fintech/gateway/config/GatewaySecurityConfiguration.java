@@ -1,4 +1,3 @@
-
 package com.fintech.gateway.config;
 
 import java.util.Collection;
@@ -25,74 +24,86 @@ import reactor.core.publisher.Mono;
 @EnableWebFluxSecurity
 public class GatewaySecurityConfiguration {
 
-    private static final String WEB_CLIENT_ID = "money-transfer-web";
+        private static final String WEB_CLIENT_ID = "money-transfer-web";
 
-    @Bean
-    public Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter() {
+        @Bean
+        public Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter() {
 
-        return jwt -> {
-            Set<GrantedAuthority> authorities = new LinkedHashSet<>();
+                return jwt -> {
+                        Set<GrantedAuthority> authorities = new LinkedHashSet<>();
 
-            // Only tokens issued to our browser application may use
-            // the public customer routes.
-            if (WEB_CLIENT_ID.equals(jwt.getClaimAsString("azp"))) {
+                        // Only tokens issued to our browser application may use
+                        // the public customer routes.
+                        if (WEB_CLIENT_ID.equals(jwt.getClaimAsString("azp"))) {
 
-                Object realmAccessClaim = jwt.getClaims().get("realm_access");
+                                Object realmAccessClaim = jwt.getClaims().get("realm_access");
 
-                if (realmAccessClaim instanceof Map<?, ?> realmAccess) {
-                    Object rolesClaim = realmAccess.get("roles");
+                                if (realmAccessClaim instanceof Map<?, ?> realmAccess) {
+                                        Object rolesClaim = realmAccess.get("roles");
 
-                    if (rolesClaim instanceof Collection<?> roles) {
-                        for (Object role : roles) {
-                            if (role instanceof String roleName
-                                    && !roleName.isBlank()) {
+                                        if (rolesClaim instanceof Collection<?> roles) {
+                                                for (Object role : roles) {
+                                                        if (role instanceof String roleName
+                                                                        && !roleName.isBlank()) {
 
-                                authorities.add(
-                                        new SimpleGrantedAuthority(
-                                                "ROLE_" + roleName));
-                            }
+                                                                authorities.add(
+                                                                                new SimpleGrantedAuthority(
+                                                                                                "ROLE_" + roleName));
+                                                        }
+                                                }
+                                        }
+                                }
                         }
-                    }
-                }
-            }
 
-            return Mono.just(
-                    new JwtAuthenticationToken(jwt, authorities));
-        };
-    }
+                        return Mono.just(
+                                        new JwtAuthenticationToken(jwt, authorities));
+                };
+        }
 
-    @Bean
-    public SecurityWebFilterChain gatewaySecurityFilterChain(
-            ServerHttpSecurity http,
-            Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter) {
+        @Bean
+        public SecurityWebFilterChain gatewaySecurityFilterChain(
+                        ServerHttpSecurity http,
+                        Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter) {
 
-        return http
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange(exchanges -> exchanges
+                return http
+                                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                                .authorizeExchange(exchanges -> exchanges
 
-                        .pathMatchers(
-                                "/actuator/health",
-                                "/actuator/health/**")
-                        .permitAll()
+                                                .pathMatchers(
+                                                                "/actuator/health",
+                                                                "/actuator/health/**")
+                                                .permitAll()
 
-                        .pathMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/transfers")
-                        .hasRole("CUSTOMER")
+                                                .pathMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/v1/transfers")
+                                                .hasRole("CUSTOMER")
 
-                        .pathMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/transfers",
-                                "/api/v1/transfers/**")
-                        .hasRole("CUSTOMER")
+                                                .pathMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/v1/transfers",
+                                                                "/api/v1/transfers/**")
+                                                .hasRole("CUSTOMER")
 
-                        // No other route is publicly accessible.
-                        .anyExchange().denyAll())
+                                                .pathMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/v1/reconciliation",
+                                                                "/api/v1/reconciliation/**")
+                                                .hasAnyRole("OPERATIONS", "ADMIN")
 
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(
-                                gatewayJwtAuthenticationConverter)))
+                                                .pathMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/v1/reconciliation",
+                                                                "/api/v1/reconciliation/**")
+                                                .hasAnyRole("OPERATIONS", "ADMIN")
 
-                .build();
-    }
+                                                // No other route is publicly accessible.
+                                                .anyExchange().denyAll())
+
+                                .oauth2ResourceServer(oauth2 -> oauth2
+                                                .jwt(jwt -> jwt.jwtAuthenticationConverter(
+                                                                gatewayJwtAuthenticationConverter)))
+
+                                .build();
+        }
 }
