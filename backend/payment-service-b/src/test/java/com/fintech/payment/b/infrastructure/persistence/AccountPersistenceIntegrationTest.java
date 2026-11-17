@@ -67,6 +67,29 @@ class AccountPersistenceIntegrationTest {
     }
 
     @Test
+    void shouldReturnEmptyWhenAccountNumberDoesNotExist() {
+        Optional<Account> result = accountRepository.findByAccountNumber(
+                "MISSING-" + UUID.randomUUID());
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldFindAccountByAccountNumber() throws SQLException {
+        UUID accountId = insertAccount(
+                new BigDecimal("75.00"),
+                AccountStatus.ACTIVE);
+
+        Account account = accountRepository
+                .findByAccountNumber("E2E-" + accountId)
+                .orElseThrow();
+
+        assertEquals(accountId, account.getId());
+        assertEquals("E2E-" + accountId, account.getAccountNumber());
+        assertMoney("75.00", account.getBalance());
+    }
+
+    @Test
     void shouldMapPersistedAccountToDomainModel() throws SQLException {
         UUID accountId = insertAccount(
                 new BigDecimal("75.00"),

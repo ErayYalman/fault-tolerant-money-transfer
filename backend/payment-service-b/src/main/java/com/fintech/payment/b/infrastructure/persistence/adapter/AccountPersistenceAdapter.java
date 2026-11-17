@@ -39,6 +39,18 @@ public class AccountPersistenceAdapter implements AccountRepository {
     }
 
     @Override
+    public Optional<Account> findByAccountNumber(String accountNumber) {
+        Objects.requireNonNull(
+                accountNumber,
+                "accountNumber must not be null"
+        );
+
+        return repository.find("accountNumber = ?1", accountNumber)
+                .firstResultOptional()
+                .map(mapper::toDomain);
+    }
+
+    @Override
     @Transactional(Transactional.TxType.MANDATORY)
     public void update(Account account) {
         Objects.requireNonNull(

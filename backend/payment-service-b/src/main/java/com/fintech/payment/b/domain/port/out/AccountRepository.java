@@ -9,5 +9,7 @@ public interface AccountRepository {
 
     Optional<Account> findById(UUID accountId);
 
+    Optional<Account> findByAccountNumber(String accountNumber);
+
     void update(Account account);
 }
