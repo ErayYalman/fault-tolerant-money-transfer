@@ -67,6 +67,13 @@ public class TransferTestSecurityConfiguration {
                                                                                 List.of("reconciliation-read"))))
                                                 .build();
 
+                                case "foreign-customer-test-token" -> builder
+                                                .subject("foreign-client-user")
+                                                .claim("azp", "another-client")
+                                                .claim("realm_access", Map.of(
+                                                                "roles", List.of("CUSTOMER")))
+                                                .build();
+
                                 default -> throw new JwtException(
                                                 "Unknown test token");
                         };

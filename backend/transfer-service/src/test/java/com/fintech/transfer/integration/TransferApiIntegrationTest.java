@@ -1,9 +1,12 @@
 package com.fintech.transfer.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,11 +25,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fintech.transfer.application.exception.RecipientLookupUnavailableException;
+import com.fintech.transfer.domain.model.RecipientAccount;
+import com.fintech.transfer.domain.port.out.RecipientAccountLookupPort;
 import com.fintech.transfer.support.TransferTestSecurityConfiguration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -70,6 +77,9 @@ class TransferApiIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private RecipientAccountLookupPort recipientAccountLookupPort;
 
     @BeforeEach
     void cleanDatabase() {
@@ -460,6 +470,101 @@ class TransferApiIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void shouldReturnRecipientSummaryForAuthenticatedCustomer() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenReturn(Optional.of(
+                        new RecipientAccount(
+                                UUID.fromString(
+                                        "11111111-1111-1111-1111-111111111111"),
+                                "BANK-B-RECIPIENT-001",
+                                "TRY",
+                                "ACTIVE")));
+
+        ResponseEntity<String> response = getRecipient(
+                "BANK-B-RECIPIENT-001",
+                "customer-test-token");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .contains("BANK-B-RECIPIENT-001")
+                .contains("\"currency\":\"TRY\"")
+                .contains("\"status\":\"ACTIVE\"")
+                .doesNotContain("accountId")
+                .doesNotContain("balance")
+                .doesNotContain("ownerSubject");
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenRecipientDoesNotExist() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-MISSING-001"))
+                .thenReturn(Optional.empty());
+
+        ResponseEntity<String> response = getRecipient(
+                "BANK-B-MISSING-001",
+                "customer-test-token");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void shouldRejectRecipientLookupWithoutBearerToken() {
+        ResponseEntity<String> response = restTemplate.exchange(
+                "http://localhost:" + port
+                        + "/api/v1/recipients/BANK-B-RECIPIENT-001",
+                HttpMethod.GET,
+                new HttpEntity<>(new HttpHeaders()),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void shouldRejectOperationsFromRecipientLookup() {
+        ResponseEntity<String> response = getRecipient(
+                "BANK-B-RECIPIENT-001",
+                "operations-test-token");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(recipientAccountLookupPort);
+    }
+
+    @Test
+    void shouldRejectForeignClientEvenWhenItClaimsCustomerRole() {
+        ResponseEntity<String> response = getRecipient(
+                "BANK-B-RECIPIENT-001",
+                "foreign-customer-test-token");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(recipientAccountLookupPort);
+    }
+
+    @Test
+    void shouldRejectAccountNumberLongerThanMaximumLength() {
+        ResponseEntity<String> response = getRecipient(
+                "A".repeat(51),
+                "customer-test-token");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(recipientAccountLookupPort);
+    }
+
+    @Test
+    void shouldReturnServiceUnavailableWhenRecipientLookupFails() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenThrow(new RecipientLookupUnavailableException());
+
+        ResponseEntity<String> response = getRecipient(
+                "BANK-B-RECIPIENT-001",
+                "customer-test-token");
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     private UUID createTransfer(String token, String idempotencyPrefix) {
         String request = """
                 {
@@ -521,5 +626,21 @@ class TransferApiIntegrationTest {
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class);
+    }
+
+    private ResponseEntity<String> getRecipient(
+            String accountNumber,
+            String token) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        return restTemplate.exchange(
+                "http://localhost:" + port
+                        + "/api/v1/recipients/" + accountNumber,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class
+        );
     }
 }

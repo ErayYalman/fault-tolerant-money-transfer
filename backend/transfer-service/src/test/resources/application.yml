@@ -5,3 +5,15 @@ app:
   outbox:
     relay:
       enabled: false
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          payment-b-lookup:
+            client-secret: test-client-secret
+
+transfer:
+  clients:
+    payment-b-base-url: http://localhost:8082

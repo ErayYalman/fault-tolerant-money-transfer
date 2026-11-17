@@ -25,6 +25,7 @@ public class TransferSecurityConfiguration {
 
     private static final String SERVICE_CLIENT_ID = "transfer-service";
     private static final String RECONCILIATION_CLIENT_ID = "reconciliation-service";
+    private static final String WEB_CLIENT_ID = "money-transfer-web";
 
     @Bean
     public JwtAuthenticationConverter transferJwtAuthenticationConverter() {
@@ -39,10 +40,12 @@ public class TransferSecurityConfiguration {
                 authorities.addAll(scopeAuthorities);
             }
 
-            // Human-user realm roles: CUSTOMER, OPERATIONS, ADMIN.
-            addRoles(
-                    jwt.getClaim("realm_access"),
-                    authorities);
+            // Human-user realm roles are trusted only from the browser client.
+            if (WEB_CLIENT_ID.equals(jwt.getClaimAsString("azp"))) {
+                addRoles(
+                        jwt.getClaim("realm_access"),
+                        authorities);
+            }
 
             // Service client roles are accepted only from the
             // dedicated reconciliation-service client.
@@ -120,6 +123,12 @@ public class TransferSecurityConfiguration {
                                 HttpMethod.GET,
                                 "/api/v1/transfers",
                                 "/api/v1/transfers/**")
+                        .hasRole("CUSTOMER")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/recipients",
+                                "/api/v1/recipients/**")
                         .hasRole("CUSTOMER")
 
                         .requestMatchers(

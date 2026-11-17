@@ -1,5 +1,7 @@
 package com.fintech.transfer.presentation.rest;
 
+import com.fintech.transfer.application.exception.RecipientLookupUnavailableException;
+import com.fintech.transfer.domain.exception.RecipientAccountNotFoundException;
 import com.fintech.transfer.domain.exception.TransferNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -79,6 +81,33 @@ public class TransferExceptionHandler {
 
         problem.setTitle("Constraint violation");
         problem.setDetail(exception.getMessage());
+
+        return problem;
+    }
+
+    @ExceptionHandler(RecipientAccountNotFoundException.class)
+    public ProblemDetail handleRecipientNotFound(
+            RecipientAccountNotFoundException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(
+                HttpStatus.NOT_FOUND);
+
+        problem.setTitle("Recipient account not found");
+        problem.setDetail(exception.getMessage());
+
+        return problem;
+    }
+
+    @ExceptionHandler(RecipientLookupUnavailableException.class)
+    public ProblemDetail handleRecipientLookupUnavailable(
+            RecipientLookupUnavailableException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(
+                HttpStatus.SERVICE_UNAVAILABLE);
+
+        problem.setTitle("Recipient lookup unavailable");
+        problem.setDetail(
+                "Recipient account verification is temporarily unavailable");
 
         return problem;
     }

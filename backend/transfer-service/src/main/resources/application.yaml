@@ -9,6 +9,18 @@ spring:
             - ${TRANSFER_SERVICE_OIDC_AUDIENCE:transfer-service}
           jws-algorithms:
             - RS256
+      client:
+        registration:
+          payment-b-lookup:
+            provider: keycloak
+            client-id: ${TRANSFER_SERVICE_OIDC_CLIENT_ID:transfer-service-client}
+            client-secret: ${TRANSFER_SERVICE_OIDC_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            client-authentication-method: client_secret_basic
+
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8180/realms/money-transfer/protocol/openid-connect/token}
   config:
     import: optional:file:../../.env[.properties]
     
@@ -84,3 +96,7 @@ app:
     poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${OUTBOX_BATCH_SIZE:100}
     send-timeout-ms: ${OUTBOX_SEND_TIMEOUT_MS:10000}
+
+transfer:
+  clients:
+    payment-b-base-url: ${PAYMENT_B_SERVICE_BASE_URL:http://localhost:8082}
