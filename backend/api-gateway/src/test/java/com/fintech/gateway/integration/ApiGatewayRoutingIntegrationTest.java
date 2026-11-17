@@ -66,6 +66,9 @@ class ApiGatewayRoutingIntegrationTest {
                                 "GATEWAY_RECONCILIATION_SERVICE_BASE_URL",
                                 () -> "http://127.0.0.1:" + UPSTREAM.getAddress().getPort());
                 registry.add(
+                                "GATEWAY_PAYMENT_A_SERVICE_BASE_URL",
+                                () -> "http://127.0.0.1:" + UPSTREAM.getAddress().getPort());
+                registry.add(
                                 "GATEWAY_RESPONSE_TIMEOUT",
                                 () -> "2000ms");
         }
@@ -329,6 +332,107 @@ class ApiGatewayRoutingIntegrationTest {
                 HttpResponse<String> response = sendGet(
                                 "/api/v1/transfers",
                                 "foreign-client-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldForwardOwnAccountsRequestWithoutChangingPathOrAuthorization()
+                        throws Exception {
+
+                UPSTREAM_STATUS.set(200);
+                UPSTREAM_RESPONSE_BODY.set(
+                                """
+                                                {
+                                                  "content": [
+                                                    {
+                                                      "accountId": "11111111-1111-1111-1111-111111111111",
+                                                      "accountNumber": "BANK-A-001",
+                                                      "balance": 1000.00,
+                                                      "currency": "TRY",
+                                                      "status": "ACTIVE"
+                                                    }
+                                                  ],
+                                                  "page": 0,
+                                                  "size": 20,
+                                                  "totalElements": 1,
+                                                  "totalPages": 1
+                                                }
+                                                """);
+
+                String path = "/api/v1/accounts?page=0&size=20";
+
+                HttpResponse<String> response = sendGet(
+                                path,
+                                "customer-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).contains("BANK-A-001");
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(1);
+                assertThat(LAST_METHOD.get()).isEqualTo("GET");
+                assertThat(LAST_PATH.get()).isEqualTo(path);
+                assertThat(LAST_AUTHORIZATION.get())
+                                .isEqualTo("Bearer customer-test-token");
+        }
+
+        @Test
+        void shouldRejectOperationsFromAccountRoutes()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/accounts",
+                                "operations-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectAccountRequestWithoutBearerToken()
+                        throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(gatewayBaseUrl() + "/api/v1/accounts"))
+                                .timeout(Duration.ofSeconds(5))
+                                .GET()
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(401);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectForeignClientFromAccountRoutes()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/accounts",
+                                "foreign-client-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectNonGetAccountRoute()
+                        throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(gatewayBaseUrl() + "/api/v1/accounts"))
+                                .header("Authorization", "Bearer customer-test-token")
+                                .timeout(Duration.ofSeconds(5))
+                                .POST(HttpRequest.BodyPublishers.noBody())
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
 
                 assertThat(response.statusCode()).isEqualTo(403);
                 assertThat(REQUEST_COUNT.get()).isZero();
