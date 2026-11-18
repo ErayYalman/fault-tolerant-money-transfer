@@ -32,7 +32,12 @@ spring:
               uri: ${GATEWAY_TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/v1/transfers,/api/v1/transfers/**
-                
+
+            - id: recipient-lookup
+              uri: ${GATEWAY_TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
+              predicates:
+                - Path=/api/v1/recipients,/api/v1/recipients/**
+                 
             - id: reconciliation-service
               uri: ${GATEWAY_RECONCILIATION_SERVICE_BASE_URL:http://localhost:8083}
               predicates:

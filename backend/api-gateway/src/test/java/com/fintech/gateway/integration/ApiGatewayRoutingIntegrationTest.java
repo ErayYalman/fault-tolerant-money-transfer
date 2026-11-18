@@ -105,7 +105,7 @@ class ApiGatewayRoutingIntegrationTest {
                                   "amount": 1500.00,
                                   "currency": "TRY",
                                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                                   "idempotencyKey": "gateway-integration-test"
                                 }
                                 """;
@@ -140,6 +140,7 @@ class ApiGatewayRoutingIntegrationTest {
                 String[] internalPaths = {
                                 "/internal/transfers",
                                 "/internal/ledger",
+                                "/internal/recipient-accounts/BANK-B-RECIPIENT-001",
                                 "/score",
                                 "/train"
                 };
@@ -425,6 +426,101 @@ class ApiGatewayRoutingIntegrationTest {
 
                 HttpRequest request = HttpRequest.newBuilder()
                                 .uri(URI.create(gatewayBaseUrl() + "/api/v1/accounts"))
+                                .header("Authorization", "Bearer customer-test-token")
+                                .timeout(Duration.ofSeconds(5))
+                                .POST(HttpRequest.BodyPublishers.noBody())
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldForwardRecipientLookupWithoutChangingPathOrAuthorization()
+                        throws Exception {
+
+                UPSTREAM_STATUS.set(200);
+                UPSTREAM_RESPONSE_BODY.set(
+                                """
+                                                {
+                                                  "accountNumber": "BANK-B-RECIPIENT-001",
+                                                  "currency": "TRY",
+                                                  "status": "ACTIVE"
+                                                }
+                                                """);
+
+                String path = "/api/v1/recipients/BANK-B-RECIPIENT-001";
+
+                HttpResponse<String> response = sendGet(
+                                path,
+                                "customer-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).contains("BANK-B-RECIPIENT-001");
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(1);
+                assertThat(LAST_METHOD.get()).isEqualTo("GET");
+                assertThat(LAST_PATH.get()).isEqualTo(path);
+                assertThat(LAST_AUTHORIZATION.get())
+                                .isEqualTo("Bearer customer-test-token");
+        }
+
+        @Test
+        void shouldRejectOperationsFromRecipientRoutes()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/recipients/BANK-B-RECIPIENT-001",
+                                "operations-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectForeignClientFromRecipientRoutes()
+                        throws Exception {
+
+                HttpResponse<String> response = sendGet(
+                                "/api/v1/recipients/BANK-B-RECIPIENT-001",
+                                "foreign-client-test-token");
+
+                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectRecipientRequestWithoutBearerToken()
+                        throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(
+                                                gatewayBaseUrl()
+                                                                + "/api/v1/recipients/BANK-B-RECIPIENT-001"))
+                                .timeout(Duration.ofSeconds(5))
+                                .GET()
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(401);
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectNonGetRecipientRoute()
+                        throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(
+                                                gatewayBaseUrl()
+                                                                + "/api/v1/recipients/BANK-B-RECIPIENT-001"))
                                 .header("Authorization", "Bearer customer-test-token")
                                 .timeout(Duration.ofSeconds(5))
                                 .POST(HttpRequest.BodyPublishers.noBody())

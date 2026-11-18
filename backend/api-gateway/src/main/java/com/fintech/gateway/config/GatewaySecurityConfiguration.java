@@ -92,6 +92,12 @@ public class GatewaySecurityConfiguration {
                                                 .hasRole("CUSTOMER")
 
                                                 .pathMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/v1/recipients",
+                                                                "/api/v1/recipients/**")
+                                                .hasRole("CUSTOMER")
+
+                                                .pathMatchers(
                                                                 HttpMethod.POST,
                                                                 "/api/v1/reconciliation",
                                                                 "/api/v1/reconciliation/**")
