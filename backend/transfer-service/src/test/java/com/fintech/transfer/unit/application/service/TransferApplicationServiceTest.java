@@ -19,10 +19,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fintech.transfer.application.service.TransferApplicationService;
 import com.fintech.transfer.application.service.TransferCreationService;
+import com.fintech.transfer.domain.exception.RecipientAccountNotActiveException;
+import com.fintech.transfer.domain.exception.RecipientCurrencyMismatchException;
 import com.fintech.transfer.domain.exception.TransferNotFoundException;
 import com.fintech.transfer.domain.model.Money;
+import com.fintech.transfer.domain.model.RecipientAccount;
 import com.fintech.transfer.domain.model.Transfer;
 import com.fintech.transfer.domain.port.in.InitiateTransferUseCase;
+import com.fintech.transfer.domain.port.in.LookupRecipientAccountUseCase;
 import com.fintech.transfer.domain.port.out.TransferRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,37 +38,49 @@ class TransferApplicationServiceTest {
         @Mock
         private TransferCreationService transferCreationService;
 
+        @Mock
+        private LookupRecipientAccountUseCase recipientAccountLookup;
+
         private TransferApplicationService service;
 
         @BeforeEach
         void setUp() {
                 service = new TransferApplicationService(
                                 transferRepository,
-                                transferCreationService);
+                                transferCreationService,
+                                recipientAccountLookup);
         }
 
         @Test
         void shouldCreateTransferWhenIdempotencyKeyDoesNotExist() {
                 UUID fromAccountId = UUID.randomUUID();
-                UUID toAccountId = UUID.randomUUID();
+                UUID recipientId = UUID.randomUUID();
 
                 InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
                                 new BigDecimal("1500.00"),
                                 "TRY",
                                 fromAccountId,
-                                toAccountId,
+                                " BANK-B-RECIPIENT-001 ",
                                 "unique-key",
                                 "customer-user-1");
 
                 Transfer transfer = createTransfer(
                                 fromAccountId,
-                                toAccountId,
+                                recipientId,
                                 "unique-key");
 
                 when(transferRepository.findByOwnerSubjectAndIdempotencyKey("customer-user-1", "unique-key"))
                                 .thenReturn(Optional.empty());
 
-                when(transferCreationService.create(command))
+                when(recipientAccountLookup.findByAccountNumber(
+                                " BANK-B-RECIPIENT-001 "))
+                                .thenReturn(new RecipientAccount(
+                                                recipientId,
+                                                "BANK-B-RECIPIENT-001",
+                                                "TRY",
+                                                "ACTIVE"));
+
+                when(transferCreationService.create(command, recipientId))
                                 .thenReturn(transfer);
 
                 InitiateTransferUseCase.CreateTransferResult result = service.execute(command);
@@ -76,7 +92,67 @@ class TransferApplicationServiceTest {
                                 .isSameAs(transfer);
 
                 verify(transferCreationService)
-                                .create(command);
+                                .create(command, recipientId);
+        }
+
+        @Test
+        void shouldRejectInactiveRecipientBeforeCreatingTransfer() {
+                UUID fromAccountId = UUID.randomUUID();
+
+                InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
+                                new BigDecimal("1500.00"),
+                                "TRY",
+                                fromAccountId,
+                                " BANK-B-RECIPIENT-001 ",
+                                "inactive-recipient-key",
+                                "customer-user-1");
+
+                when(transferRepository.findByOwnerSubjectAndIdempotencyKey("customer-user-1",
+                                "inactive-recipient-key"))
+                                .thenReturn(Optional.empty());
+
+                when(recipientAccountLookup.findByAccountNumber(
+                                " BANK-B-RECIPIENT-001 "))
+                                .thenReturn(new RecipientAccount(
+                                                UUID.randomUUID(),
+                                                "BANK-B-RECIPIENT-001",
+                                                "TRY",
+                                                "FROZEN"));
+
+                assertThatThrownBy(() -> service.execute(command))
+                                .isInstanceOf(RecipientAccountNotActiveException.class);
+
+                verifyNoInteractions(transferCreationService);
+        }
+
+        @Test
+        void shouldRejectRecipientWithDifferentCurrency() {
+                UUID fromAccountId = UUID.randomUUID();
+
+                InitiateTransferUseCase.InitiateTransferCommand command = new InitiateTransferUseCase.InitiateTransferCommand(
+                                new BigDecimal("1500.00"),
+                                "TRY",
+                                fromAccountId,
+                                " BANK-B-RECIPIENT-001 ",
+                                "currency-mismatch-key",
+                                "customer-user-1");
+
+                when(transferRepository.findByOwnerSubjectAndIdempotencyKey("customer-user-1",
+                                "currency-mismatch-key"))
+                                .thenReturn(Optional.empty());
+
+                when(recipientAccountLookup.findByAccountNumber(
+                                " BANK-B-RECIPIENT-001 "))
+                                .thenReturn(new RecipientAccount(
+                                                UUID.randomUUID(),
+                                                "BANK-B-RECIPIENT-001",
+                                                "USD",
+                                                "ACTIVE"));
+
+                assertThatThrownBy(() -> service.execute(command))
+                                .isInstanceOf(RecipientCurrencyMismatchException.class);
+
+                verifyNoInteractions(transferCreationService);
         }
 
         @Test
@@ -88,7 +164,7 @@ class TransferApplicationServiceTest {
                                 new BigDecimal("1500.00"),
                                 "TRY",
                                 fromAccountId,
-                                toAccountId,
+                                " BANK-B-RECIPIENT-001 ",
                                 "existing-key",
                                 "customer-user-1");
 
@@ -108,7 +184,9 @@ class TransferApplicationServiceTest {
                 assertThat(result.transfer())
                                 .isSameAs(existingTransfer);
 
-                verifyNoInteractions(transferCreationService);
+                verifyNoInteractions(
+                                transferCreationService,
+                                recipientAccountLookup);
         }
 
         @Test

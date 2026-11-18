@@ -1,7 +1,9 @@
 package com.fintech.transfer.presentation.rest;
 
 import com.fintech.transfer.application.exception.RecipientLookupUnavailableException;
+import com.fintech.transfer.domain.exception.RecipientAccountNotActiveException;
 import com.fintech.transfer.domain.exception.RecipientAccountNotFoundException;
+import com.fintech.transfer.domain.exception.RecipientCurrencyMismatchException;
 import com.fintech.transfer.domain.exception.TransferNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -80,6 +82,21 @@ public class TransferExceptionHandler {
         );
 
         problem.setTitle("Constraint violation");
+        problem.setDetail(exception.getMessage());
+
+        return problem;
+    }
+
+    @ExceptionHandler({
+            RecipientAccountNotActiveException.class,
+            RecipientCurrencyMismatchException.class
+    })
+    public ProblemDetail handleRecipientValidation(RuntimeException exception) {
+
+        ProblemDetail problem = ProblemDetail.forStatus(
+                HttpStatus.UNPROCESSABLE_ENTITY);
+
+        problem.setTitle("Recipient account cannot receive this transfer");
         problem.setDetail(exception.getMessage());
 
         return problem;

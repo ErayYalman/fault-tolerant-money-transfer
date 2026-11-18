@@ -13,7 +13,7 @@ public interface InitiateTransferUseCase {
                         BigDecimal amount,
                         String currency,
                         UUID fromAccountId,
-                        UUID toAccountId,
+                        String toAccountNumber,
                         String idempotencyKey,
                         String ownerSubject) {
         }

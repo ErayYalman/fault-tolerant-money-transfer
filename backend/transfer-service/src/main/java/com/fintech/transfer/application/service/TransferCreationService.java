@@ -44,7 +44,8 @@ public class TransferCreationService {
 
     @Transactional
     public Transfer create(
-            InitiateTransferUseCase.InitiateTransferCommand command
+            InitiateTransferUseCase.InitiateTransferCommand command,
+            UUID recipientAccountId
     ) {
         Instant now = Instant.now(clock);
 
@@ -55,7 +56,7 @@ public class TransferCreationService {
                 command.idempotencyKey(),
                 command.ownerSubject(),
                 command.fromAccountId(),
-                command.toAccountId(),
+                recipientAccountId,
                 new Money(
                         command.amount(),
                         command.currency()

@@ -1,6 +1,8 @@
 package com.fintech.transfer.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -87,6 +89,16 @@ class TransferApiIntegrationTest {
         jdbcTemplate.update("DELETE FROM outbox_events");
         jdbcTemplate.update("DELETE FROM saga_state");
         jdbcTemplate.update("DELETE FROM transfers");
+
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenReturn(Optional.of(
+                        new RecipientAccount(
+                                UUID.fromString(
+                                        "22222222-2222-2222-2222-222222222222"),
+                                "BANK-B-RECIPIENT-001",
+                                "TRY",
+                                "ACTIVE")));
     }
 
     @Test
@@ -98,7 +110,7 @@ class TransferApiIntegrationTest {
                   "amount": 1500.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "%s"
                 }
                 """.formatted(idempotencyKey);
@@ -123,7 +135,7 @@ class TransferApiIntegrationTest {
                   "amount": 1000.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "%s"
                 }
                 """.formatted(idempotencyKey);
@@ -146,16 +158,29 @@ class TransferApiIntegrationTest {
 
         assertThat(secondContext.read("$.status", String.class))
                 .isEqualTo("DEBIT_REQUESTED");
+
+        verify(recipientAccountLookupPort, times(1))
+                .findByAccountNumber("BANK-B-RECIPIENT-001");
     }
 
     @Test
     void shouldRejectSameSourceAndTargetAccount() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenReturn(Optional.of(
+                        new RecipientAccount(
+                                UUID.fromString(
+                                        "11111111-1111-1111-1111-111111111111"),
+                                "BANK-B-RECIPIENT-001",
+                                "TRY",
+                                "ACTIVE")));
+
         String request = """
                 {
                   "amount": 1000.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "same-account-%s"
                 }
                 """.formatted(UUID.randomUUID());
@@ -175,7 +200,7 @@ class TransferApiIntegrationTest {
                   "amount": 1500.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "%s"
                 }
                 """.formatted(idempotencyKey);
@@ -221,6 +246,14 @@ class TransferApiIntegrationTest {
                 String.class,
                 transferId);
 
+        UUID persistedRecipientId = jdbcTemplate.queryForObject(
+                "SELECT to_account_id FROM transfers WHERE id = ?",
+                UUID.class,
+                transferId);
+
+        assertThat(persistedRecipientId).isEqualTo(
+                UUID.fromString("22222222-2222-2222-2222-222222222222"));
+
         assertThat(status).isEqualTo("DEBIT_REQUESTED");
         assertThat(sagaCount).isEqualTo(1L);
         assertThat(outboxCount).isEqualTo(1L);
@@ -236,7 +269,7 @@ class TransferApiIntegrationTest {
                   "amount": 2500.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "%s"
                 }
                 """.formatted(sharedIdempotencyKey);
@@ -281,7 +314,7 @@ class TransferApiIntegrationTest {
                   "amount": 1750.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "%s"
                 }
                 """.formatted(idempotencyKey);
@@ -565,13 +598,174 @@ class TransferApiIntegrationTest {
                 .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     }
 
+    @Test
+    void shouldNotCreateTransferWhenRecipientDoesNotExist() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-MISSING-001"))
+                .thenReturn(Optional.empty());
+
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-MISSING-001",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted("missing-recipient-" + UUID.randomUUID());
+
+        ResponseEntity<String> response = postTransfer(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        Long transferCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM transfers",
+                Long.class);
+
+        Long sagaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM saga_state",
+                Long.class);
+
+        Long outboxCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events",
+                Long.class);
+
+        assertThat(transferCount).isZero();
+        assertThat(sagaCount).isZero();
+        assertThat(outboxCount).isZero();
+    }
+
+    @Test
+    void shouldNotCreateTransferWhenRecipientIsInactive() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenReturn(Optional.of(
+                        new RecipientAccount(
+                                UUID.randomUUID(),
+                                "BANK-B-RECIPIENT-001",
+                                "TRY",
+                                "FROZEN")));
+
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted("inactive-recipient-" + UUID.randomUUID());
+
+        ResponseEntity<String> response = postTransfer(request);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        Long transferCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM transfers",
+                Long.class);
+
+        Long sagaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM saga_state",
+                Long.class);
+
+        Long outboxCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events",
+                Long.class);
+
+        assertThat(transferCount).isZero();
+        assertThat(sagaCount).isZero();
+        assertThat(outboxCount).isZero();
+    }
+
+    @Test
+    void shouldNotCreateTransferWhenRecipientCurrencyDoesNotMatch() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenReturn(Optional.of(
+                        new RecipientAccount(
+                                UUID.randomUUID(),
+                                "BANK-B-RECIPIENT-001",
+                                "USD",
+                                "ACTIVE")));
+
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted("currency-mismatch-" + UUID.randomUUID());
+
+        ResponseEntity<String> response = postTransfer(request);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+
+        Long transferCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM transfers",
+                Long.class);
+
+        Long sagaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM saga_state",
+                Long.class);
+
+        Long outboxCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events",
+                Long.class);
+
+        assertThat(transferCount).isZero();
+        assertThat(sagaCount).isZero();
+        assertThat(outboxCount).isZero();
+    }
+
+    @Test
+    void shouldNotCreateTransferWhenRecipientLookupIsUnavailable() {
+        when(recipientAccountLookupPort.findByAccountNumber(
+                "BANK-B-RECIPIENT-001"))
+                .thenThrow(new RecipientLookupUnavailableException());
+
+        String request = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted("lookup-unavailable-" + UUID.randomUUID());
+
+        ResponseEntity<String> response = postTransfer(request);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+
+        Long transferCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM transfers",
+                Long.class);
+
+        Long sagaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM saga_state",
+                Long.class);
+
+        Long outboxCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events",
+                Long.class);
+
+        assertThat(transferCount).isZero();
+        assertThat(sagaCount).isZero();
+        assertThat(outboxCount).isZero();
+    }
+
     private UUID createTransfer(String token, String idempotencyPrefix) {
         String request = """
                 {
                   "amount": 1500.00,
                   "currency": "TRY",
                   "fromAccountId": "11111111-1111-1111-1111-111111111111",
-                  "toAccountId": "22222222-2222-2222-2222-222222222222",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
                   "idempotencyKey": "%s"
                 }
                 """.formatted(idempotencyPrefix + UUID.randomUUID());

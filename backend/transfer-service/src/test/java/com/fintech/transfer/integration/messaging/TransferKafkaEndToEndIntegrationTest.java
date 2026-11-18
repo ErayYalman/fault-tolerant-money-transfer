@@ -106,9 +106,10 @@ class TransferKafkaEndToEndIntegrationTest {
                                                 new BigDecimal("125.00"),
                                                 "TRY",
                                                 UUID.randomUUID(),
-                                                UUID.randomUUID(),
+                                                "BANK-B-001",
                                                 "kafka-e2e-" + UUID.randomUUID(),
-                                                "customer-user-1"));
+                                                "customer-user-1"),
+                                UUID.randomUUID());
 
                 assertThat(transfer.getStatus().name())
                                 .isEqualTo("DEBIT_REQUESTED");
@@ -215,9 +216,10 @@ class TransferKafkaEndToEndIntegrationTest {
                                                 new BigDecimal("250.00"),
                                                 "TRY",
                                                 UUID.randomUUID(),
-                                                UUID.randomUUID(),
+                                                "BANK-B-001",
                                                 "kafka-compensation-" + UUID.randomUUID(),
-                                                "customer-user-1"));
+                                                "customer-user-1"),
+                                UUID.randomUUID());
 
                 assertThat(transfer.getStatus().name())
                                 .isEqualTo("DEBIT_REQUESTED");

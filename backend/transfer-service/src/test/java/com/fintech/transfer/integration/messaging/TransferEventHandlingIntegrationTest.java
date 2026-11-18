@@ -158,14 +158,17 @@ class TransferEventHandlingIntegrationTest {
         }
 
         private Transfer createDebitRequestedTransfer() {
+                UUID recipientAccountId = UUID.randomUUID();
+
                 return transferCreationService.create(
                                 new InitiateTransferUseCase.InitiateTransferCommand(
                                                 new BigDecimal("125.00"),
                                                 "TRY",
                                                 UUID.randomUUID(),
-                                                UUID.randomUUID(),
+                                                "BANK-B-001",
                                                 "event-integration-" + UUID.randomUUID(),
-                                                "customer-user-1"));
+                                                "customer-user-1"),
+                                recipientAccountId);
         }
 
         private DebitCompletedEvent createDebitCompletedEvent(

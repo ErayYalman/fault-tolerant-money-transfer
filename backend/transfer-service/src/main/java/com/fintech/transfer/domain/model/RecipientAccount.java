@@ -27,4 +27,13 @@ public record RecipientAccount(
                     "status must not be blank");
         }
     }
+
+    public boolean isActive() {
+        return "ACTIVE".equals(status);
+    }
+
+    public boolean supportsCurrency(String requestedCurrency) {
+        return requestedCurrency != null
+                && currency.equalsIgnoreCase(requestedCurrency);
+    }
 }

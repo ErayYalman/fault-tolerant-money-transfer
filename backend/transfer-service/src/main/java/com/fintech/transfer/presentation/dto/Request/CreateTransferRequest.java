@@ -23,8 +23,14 @@ public record CreateTransferRequest(
                 @Schema(description = "Source account UUID belonging to Bank A", example = "11111111-1111-1111-1111-111111111111") 
                 @NotNull UUID fromAccountId,
 
-                @Schema(description = "Target account UUID belonging to Bank B", example = "22222222-2222-2222-2222-222222222222")
-                @NotNull UUID toAccountId,
+                @Schema(
+                                description = "Recipient account number belonging to Bank B",
+                                example = "BANK-B-RECIPIENT-001",
+                                maxLength = 50
+                )
+                @NotBlank
+                @Size(max = 50)
+                String toAccountNumber,
 
                 @Schema(description = "Client-generated idempotency key", example = "swagger-transfer-001", maxLength = 100) 
                 @NotBlank @Size(max = 100) String idempotencyKey) {
