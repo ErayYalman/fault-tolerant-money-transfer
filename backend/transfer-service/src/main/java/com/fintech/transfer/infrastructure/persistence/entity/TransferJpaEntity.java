@@ -72,6 +72,9 @@ public class TransferJpaEntity {
     @Column(name = "owner_subject", nullable = false, length = 255)
     private String ownerSubject;
 
+    @Column(name = "request_fingerprint", length = 64)
+    private String requestFingerprint;
+
     public TransferJpaEntity() {
     }
 
@@ -217,5 +220,13 @@ public class TransferJpaEntity {
 
     public void setOwnerSubject(String ownerSubject) {
         this.ownerSubject = ownerSubject;
+    }
+
+    public String getRequestFingerprint() {
+        return requestFingerprint;
+    }
+
+    public void setRequestFingerprint(String requestFingerprint) {
+        this.requestFingerprint = requestFingerprint;
     }
 }

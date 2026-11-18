@@ -164,6 +164,57 @@ class TransferApiIntegrationTest {
     }
 
     @Test
+    void shouldRejectDifferentContentForReusedIdempotencyKey() {
+        String idempotencyKey = "fingerprint-conflict-" + UUID.randomUUID();
+
+        String firstRequest = """
+                {
+                  "amount": 1000.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted(idempotencyKey);
+
+        String conflictingRequest = """
+                {
+                  "amount": 1500.00,
+                  "currency": "TRY",
+                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                  "toAccountNumber": "BANK-B-RECIPIENT-001",
+                  "idempotencyKey": "%s"
+                }
+                """.formatted(idempotencyKey);
+
+        ResponseEntity<String> first = postTransfer(firstRequest);
+
+        assertThat(first.getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<String> conflicting = postTransfer(conflictingRequest);
+
+        assertThat(conflicting.getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        Long transferCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM transfers",
+                Long.class);
+
+        Long sagaCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM saga_state",
+                Long.class);
+
+        Long outboxCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events",
+                Long.class);
+
+        assertThat(transferCount).isEqualTo(1L);
+        assertThat(sagaCount).isEqualTo(1L);
+        assertThat(outboxCount).isEqualTo(1L);
+    }
+
+    @Test
     void shouldRejectSameSourceAndTargetAccount() {
         when(recipientAccountLookupPort.findByAccountNumber(
                 "BANK-B-RECIPIENT-001"))

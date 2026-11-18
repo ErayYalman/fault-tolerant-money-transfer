@@ -34,6 +34,7 @@ public interface TransferPersistenceMapper {
                 entity.getCreditCompletedAt(),
                 entity.getCompletedAt(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt());
+                entity.getUpdatedAt(),
+                entity.getRequestFingerprint());
     }
 }

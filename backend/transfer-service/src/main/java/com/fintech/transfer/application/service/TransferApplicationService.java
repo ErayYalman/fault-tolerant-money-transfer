@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fintech.transfer.domain.exception.IdempotencyConflictException;
 import com.fintech.transfer.domain.exception.RecipientAccountNotActiveException;
 import com.fintech.transfer.domain.exception.RecipientCurrencyMismatchException;
 import com.fintech.transfer.domain.exception.TransferNotFoundException;
@@ -35,18 +36,36 @@ public class TransferApplicationService implements InitiateTransferUseCase, GetT
         @Override
         public CreateTransferResult execute(
                         InitiateTransferCommand command) {
+                String requestFingerprint = TransferRequestFingerprint.from(command);
+
                 return transferRepository
                                 .findByOwnerSubjectAndIdempotencyKey(
                                                 command.ownerSubject(),
                                                 command.idempotencyKey())
-                                .map(existingTransfer -> new CreateTransferResult(
+                                .map(existingTransfer -> returnExistingTransfer(
                                                 existingTransfer,
-                                                false))
-                                .orElseGet(() -> createWithConcurrentSafety(command));
+                                                requestFingerprint))
+                                .orElseGet(() -> createWithConcurrentSafety(
+                                                command,
+                                                requestFingerprint));
+        }
+
+        private CreateTransferResult returnExistingTransfer(
+                        Transfer existingTransfer,
+                        String requestFingerprint) {
+                String existingFingerprint = existingTransfer.getRequestFingerprint();
+
+                if (existingFingerprint != null
+                                && !existingFingerprint.equals(requestFingerprint)) {
+                        throw new IdempotencyConflictException();
+                }
+
+                return new CreateTransferResult(existingTransfer, false);
         }
 
         private CreateTransferResult createWithConcurrentSafety(
-                        InitiateTransferCommand command) {
+                        InitiateTransferCommand command,
+                        String requestFingerprint) {
 
                 RecipientAccount recipient = recipientAccountLookup
                                 .findByAccountNumber(command.toAccountNumber());
@@ -73,9 +92,9 @@ public class TransferApplicationService implements InitiateTransferUseCase, GetT
                                         .findByOwnerSubjectAndIdempotencyKey(
                                                         command.ownerSubject(),
                                                         command.idempotencyKey())
-                                        .map(existingTransfer -> new CreateTransferResult(
+                                        .map(existingTransfer -> returnExistingTransfer(
                                                         existingTransfer,
-                                                        false))
+                                                        requestFingerprint))
                                         .orElseThrow(() -> exception);
                 }
         }

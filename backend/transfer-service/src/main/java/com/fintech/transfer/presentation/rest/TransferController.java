@@ -56,13 +56,15 @@ public class TransferController {
                         Creates a transfer and atomically persists its initial
                         debit command in the Outbox. The initial lifecycle
                         state after command persistence is DEBIT_REQUESTED.
-                        Repeated requests with the same idempotency key return
-                        the existing transfer.
+                        An idempotency key can only be reused with the same
+                        request content. A repeated request with the same key
+                        and the same content returns the existing transfer.
                         """)
         @ApiResponses({
                         @ApiResponse(responseCode = "201", description = "Transfer successfully created"),
                         @ApiResponse(responseCode = "200", description = "Existing transfer returned for duplicate idempotency key"),
-                        @ApiResponse(responseCode = "400", description = "Invalid request")
+                        @ApiResponse(responseCode = "400", description = "Invalid request"),
+                        @ApiResponse(responseCode = "409", description = "Idempotency key was already used with a different request")
         })
         @PostMapping
         public ResponseEntity<TransferResponse> createTransfer(

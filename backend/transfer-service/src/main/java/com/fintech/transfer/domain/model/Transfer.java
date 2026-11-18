@@ -18,6 +18,8 @@ public final class Transfer {
 
     private final Money money;
 
+    private final String requestFingerprint;
+
     private TransferStatus status;
     private String failureReason;
 
@@ -39,6 +41,7 @@ public final class Transfer {
             UUID fromAccountId,
             UUID toAccountId,
             Money money,
+            String requestFingerprint,
             TransferStatus status,
             String failureReason,
             Instant startedAt,
@@ -62,6 +65,7 @@ public final class Transfer {
         this.fromAccountId = Objects.requireNonNull(fromAccountId);
         this.toAccountId = Objects.requireNonNull(toAccountId);
         this.money = Objects.requireNonNull(money);
+        this.requestFingerprint = requestFingerprint;
         this.status = Objects.requireNonNull(status);
 
         this.failureReason = failureReason;
@@ -87,8 +91,15 @@ public final class Transfer {
             UUID fromAccountId,
             UUID toAccountId,
             Money money,
+            String requestFingerprint,
             Instant now) {
         Objects.requireNonNull(now);
+
+        if (requestFingerprint == null || requestFingerprint.isBlank()) {
+            throw new IllegalArgumentException(
+                    "requestFingerprint must not be blank"
+            );
+        }
 
         return new Transfer(
                 id,
@@ -98,6 +109,7 @@ public final class Transfer {
                 fromAccountId,
                 toAccountId,
                 money,
+                requestFingerprint,
                 TransferStatus.PENDING,
                 null,
                 now,
@@ -127,7 +139,8 @@ public final class Transfer {
             Instant creditCompletedAt,
             Instant completedAt,
             Instant createdAt,
-            Instant updatedAt) {
+            Instant updatedAt,
+            String requestFingerprint) {
         return new Transfer(
                 id,
                 correlationId,
@@ -136,6 +149,7 @@ public final class Transfer {
                 fromAccountId,
                 toAccountId,
                 money,
+                requestFingerprint,
                 status,
                 failureReason,
                 startedAt,
@@ -259,6 +273,10 @@ public final class Transfer {
 
     public Money getMoney() {
         return money;
+    }
+
+    public String getRequestFingerprint() {
+        return requestFingerprint;
     }
 
     public TransferStatus getStatus() {

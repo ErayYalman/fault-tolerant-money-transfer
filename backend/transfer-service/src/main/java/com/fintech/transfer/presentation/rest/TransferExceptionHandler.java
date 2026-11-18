@@ -1,6 +1,7 @@
 package com.fintech.transfer.presentation.rest;
 
 import com.fintech.transfer.application.exception.RecipientLookupUnavailableException;
+import com.fintech.transfer.domain.exception.IdempotencyConflictException;
 import com.fintech.transfer.domain.exception.RecipientAccountNotActiveException;
 import com.fintech.transfer.domain.exception.RecipientAccountNotFoundException;
 import com.fintech.transfer.domain.exception.RecipientCurrencyMismatchException;
@@ -27,6 +28,20 @@ public class TransferExceptionHandler {
         );
 
         problem.setTitle("Transfer not found");
+        problem.setDetail(exception.getMessage());
+
+        return problem;
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ProblemDetail handleIdempotencyConflict(
+            IdempotencyConflictException exception
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatus(
+                HttpStatus.CONFLICT
+        );
+
+        problem.setTitle("Idempotency key conflict");
         problem.setDetail(exception.getMessage());
 
         return problem;

@@ -304,6 +304,7 @@ class TransferSagaOrchestratorTest {
                                 new Money(
                                                 new BigDecimal("1000.00"),
                                                 "TRY"),
+                                "a".repeat(64),
                                 T1);
         }
 }

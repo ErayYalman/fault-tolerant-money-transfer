@@ -86,6 +86,7 @@ class SagaStatePersistenceAdapterIntegrationTest {
                                 new Money(
                                                 new BigDecimal("100.00"),
                                                 "TRY"),
+                                "a".repeat(64),
                                 Instant.now());
 
                 transferPersistenceAdapter.save(transfer);

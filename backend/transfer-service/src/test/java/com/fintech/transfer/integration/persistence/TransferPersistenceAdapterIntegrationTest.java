@@ -78,6 +78,7 @@ class TransferPersistenceAdapterIntegrationTest {
                                 new Money(
                                                 new BigDecimal("2500.00"),
                                                 "TRY"),
+                                "a".repeat(64),
                                 java.time.Instant.now());
 
                 Transfer saved = persistenceAdapter.save(transfer);
@@ -122,6 +123,7 @@ class TransferPersistenceAdapterIntegrationTest {
                                 new Money(
                                                 new BigDecimal("100.00"),
                                                 "TRY"),
+                                "a".repeat(64),
                                 java.time.Instant.now());
 
                 persistenceAdapter.save(transfer);

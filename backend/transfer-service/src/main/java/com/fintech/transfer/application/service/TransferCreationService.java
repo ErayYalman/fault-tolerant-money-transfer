@@ -61,6 +61,7 @@ public class TransferCreationService {
                         command.amount(),
                         command.currency()
                 ),
+                TransferRequestFingerprint.from(command),
                 now
         );
 
