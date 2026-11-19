@@ -45,6 +45,7 @@ import com.fintech.transfer.infrastructure.messaging.kafka.TransferKafkaTopics;
 @SpringBootTest(properties = {
                 "app.kafka.enabled=true",
                 "app.outbox.relay.enabled=false",
+                "app.outbox.send-timeout-ms=1000",
                 "spring.kafka.consumer.group-id=transfer-service-e2e-test",
                 "spring.kafka.consumer.auto-offset-reset=earliest"
 })
@@ -368,6 +369,69 @@ class TransferKafkaEndToEndIntegrationTest {
                                         assertThat(inboxCount(
                                                         debitCompensatedEvent.eventId())).isEqualTo(1L);
                                 });
+        }
+
+        @Test
+        void shouldKeepOutboxPendingWhenKafkaIsUnavailableAndPublishAfterRecovery()
+                        throws Exception {
+
+                Transfer transfer = transferCreationService.create(
+                                new InitiateTransferUseCase.InitiateTransferCommand(
+                                                new BigDecimal("125.00"),
+                                                "TRY",
+                                                UUID.randomUUID(),
+                                                "BANK-B-001",
+                                                "kafka-recovery-" + UUID.randomUUID(),
+                                                "customer-user-1"),
+                                UUID.randomUUID());
+
+                assertThat(outboxCount(
+                                transfer.getId(),
+                                "debit-requested",
+                                "PENDING"))
+                                .isEqualTo(1L);
+
+                String containerId = KAFKA.getContainerId();
+
+                KAFKA.getDockerClient()
+                                .pauseContainerCmd(containerId)
+                                .exec();
+
+                try {
+                        assertThat(outboxRelay.publishPendingBatch(10))
+                                        .isZero();
+
+                        assertThat(outboxCount(
+                                        transfer.getId(),
+                                        "debit-requested",
+                                        "PENDING"))
+                                        .isEqualTo(1L);
+
+                } finally {
+                        KAFKA.getDockerClient()
+                                        .unpauseContainerCmd(containerId)
+                                        .exec();
+                }
+
+                await()
+                                .atMost(Duration.ofSeconds(20))
+                                .untilAsserted(() -> {
+                                        assertThat(outboxRelay.publishPendingBatch(10))
+                                                        .isEqualTo(1);
+
+                                        assertThat(outboxCount(
+                                                        transfer.getId(),
+                                                        "debit-requested",
+                                                        "PUBLISHED"))
+                                                        .isEqualTo(1L);
+                                });
+
+                ConsumerRecord<String, String> record = awaitRecord(
+                                TransferKafkaTopics.DEBIT_REQUESTED,
+                                transfer.getCorrelationId());
+
+                assertThat(record.key())
+                                .isEqualTo(transfer.getCorrelationId().toString());
         }
 
         private ConsumerRecord<String, String> awaitRecord(
