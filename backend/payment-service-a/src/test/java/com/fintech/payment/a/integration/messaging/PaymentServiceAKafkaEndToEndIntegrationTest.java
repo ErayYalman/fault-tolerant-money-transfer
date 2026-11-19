@@ -45,6 +45,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(properties = {
         "app.kafka.enabled=true",
         "app.outbox.relay.enabled=false",
+        "app.outbox.send-timeout-ms=1000",
         "spring.kafka.consumer.group-id=payment-service-a-e2e-test",
         "spring.kafka.consumer.auto-offset-reset=earliest"
 })
@@ -261,6 +262,123 @@ class PaymentServiceAKafkaEndToEndIntegrationTest {
 
         assertThat(countLedgerTotal())
                 .isEqualTo(2L);
+    }
+
+    @Test
+    void shouldKeepDebitCompletedOutboxPendingWhenKafkaIsUnavailableAndPublishAfterRecovery()
+            throws Exception {
+
+        // Arrange: Bank A hesabı ve debit komutu.
+        String ownerSubject = "outbox-recovery-owner";
+
+        UUID accountId = createAccount(
+                new BigDecimal("100.00"),
+                ownerSubject
+        );
+
+        UUID transferId = UUID.randomUUID();
+        UUID correlationId = UUID.randomUUID();
+
+        DebitRequestedCommand debitCommand = new DebitRequestedCommand(
+                UUID.randomUUID(),
+                correlationId,
+                transferId,
+                ownerSubject,
+                "debit-recovery-" + UUID.randomUUID(),
+                accountId,
+                new BigDecimal("25.00"),
+                "TRY"
+        );
+
+        // 1. Debit komutunu gerçek Kafka broker'ına gönder.
+        kafkaTemplate.send(
+                PaymentKafkaTopics.DEBIT_REQUESTED,
+                correlationId.toString(),
+                objectMapper.writeValueAsString(debitCommand)
+        ).get(10, TimeUnit.SECONDS);
+
+        // 2. Gerçek consumer debit işlemini tamamlamalı ve
+        // debit-completed Outbox kaydını PENDING oluşturmalı.
+        await()
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> {
+                    assertThat(balance(accountId))
+                            .isEqualByComparingTo("75.00");
+
+                    assertThat(countLedger("DEBIT"))
+                            .isEqualTo(1L);
+
+                    assertThat(countInboxCommand("debit-requested"))
+                            .isEqualTo(1L);
+
+                    assertThat(countOutbox(
+                            "debit-completed",
+                            "PENDING"))
+                            .isEqualTo(1L);
+                });
+
+        // 3. Kafka broker'ını geçici olarak durdur.
+        String containerId = KAFKA.getContainerId();
+
+        KAFKA.getDockerClient()
+                .pauseContainerCmd(containerId)
+                .exec();
+
+        try {
+            // 4. Outbox Relay gönderimi gerçekleştirememeli.
+            assertThat(outboxRelay.publishPendingBatch(10))
+                    .isZero();
+
+            // Başarısız gönderimden sonra kayıt PENDING kalmalı.
+            assertThat(countOutbox(
+                    "debit-completed",
+                    "PENDING"))
+                    .isEqualTo(1L);
+
+        } finally {
+            // Test hata alsa bile Kafka'yı tekrar çalıştır.
+            KAFKA.getDockerClient()
+                    .unpauseContainerCmd(containerId)
+                    .exec();
+        }
+
+        // 5. Kafka tekrar erişilebilir olduğunda Outbox Relay
+        // bekleyen mesajı yayınlayabilmeli.
+        await()
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> {
+                    assertThat(outboxRelay.publishPendingBatch(10))
+                            .isEqualTo(1);
+
+                    assertThat(countOutbox(
+                            "debit-completed",
+                            "PUBLISHED"))
+                            .isEqualTo(1L);
+                });
+
+        // 6. Mesaj gerçek Kafka topic'ine ulaşmış olmalı.
+        ConsumerRecord<String, String> record = awaitRecord(
+                PaymentKafkaTopics.DEBIT_COMPLETED,
+                correlationId
+        );
+
+        assertThat(record.key())
+                .isEqualTo(correlationId.toString());
+
+        JsonNode debitEvent = objectMapper.readTree(record.value());
+
+        assertThat(debitEvent.path("eventId").asText())
+                .isNotBlank();
+
+        assertThat(debitEvent.path("correlationId").asText())
+                .isEqualTo(correlationId.toString());
+
+        // Recovery sırasında hesap ve ledger tekrar değiştirilmemeli.
+        assertThat(balance(accountId))
+                .isEqualByComparingTo("75.00");
+
+        assertThat(countLedger("DEBIT"))
+                .isEqualTo(1L);
     }
 
     private UUID createAccount(

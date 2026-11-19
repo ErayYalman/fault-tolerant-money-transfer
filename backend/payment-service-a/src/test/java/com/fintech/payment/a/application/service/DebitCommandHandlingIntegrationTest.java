@@ -19,6 +19,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.fintech.payment.a.application.exception.CompensationInvariantViolationException;
+import com.fintech.payment.a.application.exception.IdempotencyConflictException;
 import com.fintech.payment.a.application.messaging.command.DebitCompensationCommand;
 import com.fintech.payment.a.application.messaging.command.DebitRequestedCommand;
 
@@ -153,6 +154,87 @@ class DebitCompensationHandlingIntegrationTest {
                 assertThat(count("ledger_entries")).isEqualTo(2L);
                 assertThat(countInboxCommand("debit-compensate")).isEqualTo(1L);
                 assertThat(countOutbox("debit-compensated")).isEqualTo(1L);
+        }
+
+        @Test
+        void shouldNotDebitAccountTwiceForDuplicateLogicalOperation() {
+                UUID accountId = createAccount("100.00");
+
+                DebitRequestedCommand first = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"));
+
+                DebitRequestedCommand duplicate = new DebitRequestedCommand(
+                                UUID.randomUUID(),
+                                first.correlationId(),
+                                first.transferId(),
+                                first.ownerSubject(),
+                                "debit-retry-" + UUID.randomUUID(),
+                                first.accountId(),
+                                first.amount(),
+                                first.currency());
+
+                assertThat(debitHandlingService.handle(first))
+                                .isEqualTo(DebitCommandHandlingService.Result.PROCESSED);
+
+                assertThat(debitHandlingService.handle(duplicate))
+                                .isEqualTo(DebitCommandHandlingService.Result.DUPLICATE);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("75.00");
+
+                assertThat(countLedger("DEBIT"))
+                                .isEqualTo(1L);
+
+                assertThat(countInboxCommand("debit-requested"))
+                                .isEqualTo(1L);
+
+                assertThat(countOutbox("debit-completed"))
+                                .isEqualTo(1L);
+
+                assertThat(countOutbox("debit-failed"))
+                                .isZero();
+        }
+
+        @Test
+        void shouldRejectSameLogicalDebitOperationWithDifferentAmount() {
+                UUID accountId = createAccount("100.00");
+
+                DebitRequestedCommand first = debitCommand(
+                                accountId,
+                                new BigDecimal("25.00"));
+
+                DebitRequestedCommand conflicting = new DebitRequestedCommand(
+                                UUID.randomUUID(),
+                                first.correlationId(),
+                                first.transferId(),
+                                first.ownerSubject(),
+                                "debit-conflict-" + UUID.randomUUID(),
+                                first.accountId(),
+                                new BigDecimal("30.00"),
+                                first.currency());
+
+                assertThat(debitHandlingService.handle(first))
+                                .isEqualTo(DebitCommandHandlingService.Result.PROCESSED);
+
+                assertThatThrownBy(
+                                () -> debitHandlingService.handle(conflicting))
+                                .isInstanceOf(IdempotencyConflictException.class);
+
+                assertThat(balance(accountId))
+                                .isEqualByComparingTo("75.00");
+
+                assertThat(countLedger("DEBIT"))
+                                .isEqualTo(1L);
+
+                assertThat(countInboxCommand("debit-requested"))
+                                .isEqualTo(1L);
+
+                assertThat(countOutbox("debit-completed"))
+                                .isEqualTo(1L);
+
+                assertThat(countOutbox("debit-failed"))
+                                .isZero();
         }
 
         @Test

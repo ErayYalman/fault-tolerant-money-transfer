@@ -22,6 +22,8 @@ public class PaymentBKafkaTestResource
     private final ConfluentKafkaContainer kafka = new ConfluentKafkaContainer(
             DockerImageName.parse("confluentinc/cp-kafka:7.8.1"));
 
+    private static volatile ConfluentKafkaContainer activeKafka;
+
     @Override
     public Map<String, String> start() {
         kafka.start();
@@ -35,6 +37,8 @@ public class PaymentBKafkaTestResource
                     "Could not create Bank B Kafka test topics",
                     exception);
         }
+
+        activeKafka = kafka;
 
         String bootstrapServers = kafka.getBootstrapServers();
 
@@ -52,7 +56,10 @@ public class PaymentBKafkaTestResource
 
                 // Mesajın kaçırılmaması için en baştan okumayı garantile
                 "mp.messaging.incoming.credit-requested.auto.offset.reset",
-                "earliest");
+                "earliest",
+
+                "app.outbox.send-timeout-ms",
+                "1000");
     }
 
     private void createTopics() throws Exception {
@@ -81,6 +88,39 @@ public class PaymentBKafkaTestResource
 
     @Override
     public void stop() {
-        kafka.stop();
+        try {
+            kafka.stop();
+        } finally {
+            if (activeKafka == kafka) {
+                activeKafka = null;
+            }
+        }
+    }
+
+    public static void pauseBroker() {
+        ConfluentKafkaContainer container = requireActiveKafka();
+
+        container.getDockerClient()
+                .pauseContainerCmd(container.getContainerId())
+                .exec();
+    }
+
+    public static void resumeBroker() {
+        ConfluentKafkaContainer container = requireActiveKafka();
+
+        container.getDockerClient()
+                .unpauseContainerCmd(container.getContainerId())
+                .exec();
+    }
+
+    private static ConfluentKafkaContainer requireActiveKafka() {
+        ConfluentKafkaContainer container = activeKafka;
+
+        if (container == null || !container.isRunning()) {
+            throw new IllegalStateException(
+                    "Kafka test container is not running");
+        }
+
+        return container;
     }
 }
