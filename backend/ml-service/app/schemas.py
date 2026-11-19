@@ -29,26 +29,18 @@ class AnomalyScoringResponse(BaseModel):
         serialization_alias="anomalyScore",
         ge=0,
         le=1,
+        description=(
+            "Monotonic anomaly signal between 0 and 1; "
+            "not a calibrated probability."
+        ),
     )
+
     model_version: str = Field(
         serialization_alias="modelVersion",
         min_length=1,
         max_length=100,
     )
+
     is_anomaly: bool = Field(
         serialization_alias="isAnomaly",
-    )
-
-
-class TrainingRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    samples: list[AnomalyScoringRequest] = Field(
-        max_length=100_000,
-    )
-    model_version: str = Field(
-        default="iforest-experiment",
-        alias="modelVersion",
-        min_length=1,
-        max_length=100,
     )

@@ -3,21 +3,84 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import jwt
+import numpy as np
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
 from app import main, security
-from app.modeling import create_model_bundle, save_model
+from app.modeling import (
+    FEATURE_NAMES,
+    build_pipeline,
+    save_model,
+)
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    rng = np.random.default_rng(42)
+    sample_count = 500
+
+    amounts = rng.lognormal(
+        mean=np.log(250),
+        sigma=0.9,
+        size=sample_count,
+    )
+
+    debit_times = rng.lognormal(
+        mean=np.log(350),
+        sigma=0.65,
+        size=sample_count,
+    )
+
+    credit_times = rng.lognormal(
+        mean=np.log(450),
+        sigma=0.65,
+        size=sample_count,
+    )
+
+    network_delays = rng.lognormal(
+        mean=np.log(300),
+        sigma=0.7,
+        size=sample_count,
+    )
+
+    transactions_last_10min = (
+        rng.poisson(lam=1.2, size=sample_count) + 1
+    )
+
+    transactions_last_1h = (
+        transactions_last_10min
+        + rng.poisson(lam=3.0, size=sample_count)
+    )
+
+    features = np.column_stack(
+        [
+            amounts,
+            debit_times + credit_times + network_delays,
+            debit_times,
+            credit_times,
+            transactions_last_10min,
+            transactions_last_1h,
+        ]
+    ).astype(np.float64)
+
+    pipeline = build_pipeline(
+        features,
+        n_estimators=50,
+    )
+
+    bundle = {
+        "pipeline": pipeline,
+        "model_version": "iforest-test-v1",
+        "feature_names": FEATURE_NAMES,
+        "anomaly_score_threshold": 0.5,
+    }
+
     model_path = tmp_path / "isolation_forest.joblib"
-    save_model(model_path, create_model_bundle())
+    save_model(model_path, bundle)
 
     monkeypatch.setattr(main, "MODEL_PATH", model_path)
-    monkeypatch.setattr(main, "TRAINING_ENDPOINT_ENABLED", False)
 
     with TestClient(main.app) as test_client:
         yield test_client
@@ -28,7 +91,7 @@ def test_health_returns_loaded_model_version(client: TestClient):
 
     assert response.status_code == 200
     assert response.json()["status"] == "UP"
-    assert response.json()["model_version"] == "iforest-synthetic-v1"
+    assert response.json()["model_version"] == "iforest-test-v1"
 
 
 def test_score_returns_expected_contract(
@@ -56,8 +119,12 @@ def test_score_returns_expected_contract(
 
     result = response.json()
     assert 0.0 <= result["anomalyScore"] <= 1.0
-    assert result["modelVersion"] == "iforest-synthetic-v1"
+    assert result["modelVersion"] == "iforest-test-v1"
     assert isinstance(result["isAnomaly"], bool)
+
+    assert result["isAnomaly"] == (
+        result["anomalyScore"] >= 0.5
+    )
 
 
 def test_score_rejects_missing_features(

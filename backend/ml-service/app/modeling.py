@@ -30,7 +30,11 @@ def default_model_path() -> Path:
     if configured_path:
         return Path(configured_path)
 
-    return Path(__file__).resolve().parent.parent / "model" / "isolation_forest.joblib"
+    return (
+        Path(__file__).resolve().parent.parent
+        / "model"
+        / "isolation_forest.joblib"
+    )
 
 
 def to_feature_vector(
@@ -49,68 +53,10 @@ def to_feature_vector(
     )
 
 
-def build_synthetic_baseline(
-    sample_count: int = 6000,
-    random_seed: int = 42,
-) -> NDArray[np.float64]:
-    """Create a deterministic synthetic baseline for this prototype."""
-    if sample_count < 100:
-        raise ValueError("sample_count must be at least 100")
-
-    rng = np.random.default_rng(random_seed)
-
-    amounts = np.clip(
-        rng.lognormal(mean=np.log(250), sigma=0.9, size=sample_count),
-        1,
-        20_000,
-    )
-
-    debit_processing = np.clip(
-        rng.lognormal(mean=np.log(350), sigma=0.65, size=sample_count),
-        1,
-        20_000,
-    )
-
-    credit_processing = np.clip(
-        rng.lognormal(mean=np.log(450), sigma=0.65, size=sample_count),
-        1,
-        20_000,
-    )
-
-    network_and_queue_delay = np.clip(
-        rng.lognormal(mean=np.log(300), sigma=0.7, size=sample_count),
-        1,
-        60_000,
-    )
-
-    transaction_duration = (
-        debit_processing + credit_processing + network_and_queue_delay
-    )
-
-    transactions_last_10min = rng.poisson(
-        lam=1.2,
-        size=sample_count,
-    ) + 1
-
-    transactions_last_1h = (
-        transactions_last_10min
-        + rng.poisson(lam=3.0, size=sample_count)
-    )
-
-    return np.column_stack(
-        [
-            amounts,
-            transaction_duration,
-            debit_processing,
-            credit_processing,
-            transactions_last_10min,
-            transactions_last_1h,
-        ]
-    ).astype(np.float64)
-
-
 def build_pipeline(
     features: NDArray[np.float64],
+    random_seed: int = 42,
+    n_estimators: int = 300,
 ) -> Pipeline:
     if features.ndim != 2 or features.shape[1] != len(FEATURE_NAMES):
         raise ValueError(
@@ -126,15 +72,27 @@ def build_pipeline(
     if np.any(features[:, 0] <= 0):
         raise ValueError("Amounts must be positive")
 
+    if np.any(features[:, 1:4] < 0):
+        raise ValueError("Timing features cannot be negative")
+
+    if np.any(features[:, 4:] < 1):
+        raise ValueError("Transaction frequency features must be positive")
+
+    if np.any(features[:, 5] < features[:, 4]):
+        raise ValueError("Hourly frequency cannot be lower than 10-minute frequency")
+
+    if n_estimators < 1:
+        raise ValueError("n_estimators must be positive")
+
     pipeline = Pipeline(
         [
             ("scaler", StandardScaler()),
             (
                 "isolation_forest",
                 IsolationForest(
-                    n_estimators=200,
-                    contamination=0.03,
-                    random_state=42,
+                    n_estimators=n_estimators,
+                    contamination="auto",
+                    random_state=random_seed,
                     n_jobs=-1,
                 ),
             ),
@@ -145,17 +103,28 @@ def build_pipeline(
     return pipeline
 
 
-def create_model_bundle(
-    model_version: str = "iforest-synthetic-v1",
-) -> dict[str, Any]:
-    features = build_synthetic_baseline()
-    pipeline = build_pipeline(features)
+def decision_scores_to_anomaly_scores(
+    decision_scores: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """
+    Convert Isolation Forest decision scores into a monotonic
+    anomaly signal in the [0, 1] range.
 
-    return {
-        "pipeline": pipeline,
-        "model_version": model_version,
-        "feature_names": FEATURE_NAMES,
-    }
+    Higher values indicate stronger anomaly signals.
+    These values are not calibrated probabilities.
+    """
+    if not np.isfinite(decision_scores).all():
+        raise ValueError("Decision scores must be finite")
+
+    return (
+        1.0
+        / (
+            1.0
+            + np.exp(
+                np.clip(8.0 * decision_scores, -60, 60)
+            )
+        )
+    )
 
 
 def save_model(
@@ -190,6 +159,20 @@ def load_model(model_path: Path) -> dict[str, Any]:
     if "pipeline" not in bundle or "model_version" not in bundle:
         raise RuntimeError("Model bundle is missing required fields")
 
+    pipeline = bundle["pipeline"]
+
+    if not hasattr(pipeline, "decision_function"):
+        raise RuntimeError("Model bundle contains an invalid pipeline")
+
+    threshold = bundle.get("anomaly_score_threshold")
+
+    if (
+        not isinstance(threshold, (int, float))
+        or not np.isfinite(threshold)
+        or not 0 <= threshold <= 1
+    ):
+        raise RuntimeError("Model bundle contains an invalid anomaly threshold")
+
     return bundle
 
 
@@ -204,29 +187,18 @@ def score_sample(
 
     pipeline: Pipeline = bundle["pipeline"]
 
-    decision_score = float(pipeline.decision_function(features)[0])
-    prediction = int(pipeline.predict(features)[0])
-
-    # Higher value means a stronger anomaly signal.
-    probability_like_score = 1.0 / (
-        1.0 + np.exp(np.clip(8.0 * decision_score, -60, 60))
-    )
-
+    decision_score = pipeline.decision_function(features)
     anomaly_score = float(
-        np.clip(probability_like_score, 0.0, 1.0)
+        decision_scores_to_anomaly_scores(
+            np.asarray(decision_score, dtype=np.float64)
+        )[0]
     )
+
+    threshold = float(bundle["anomaly_score_threshold"])
+    is_anomaly = anomaly_score >= threshold
 
     return (
         anomaly_score,
         str(bundle["model_version"]),
-        prediction == -1,
+        is_anomaly,
     )
-
-
-def features_from_samples(
-    samples: list[AnomalyScoringRequest],
-) -> NDArray[np.float64]:
-    if len(samples) < 100:
-        raise ValueError("At least 100 training examples are required")
-
-    return np.vstack([to_feature_vector(sample) for sample in samples])
