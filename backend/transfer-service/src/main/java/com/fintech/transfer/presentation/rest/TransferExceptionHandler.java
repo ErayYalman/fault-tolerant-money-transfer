@@ -1,146 +1,152 @@
 package com.fintech.transfer.presentation.rest;
 
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
 import com.fintech.transfer.application.exception.RecipientLookupUnavailableException;
 import com.fintech.transfer.domain.exception.IdempotencyConflictException;
 import com.fintech.transfer.domain.exception.RecipientAccountNotActiveException;
 import com.fintech.transfer.domain.exception.RecipientAccountNotFoundException;
 import com.fintech.transfer.domain.exception.RecipientCurrencyMismatchException;
 import com.fintech.transfer.domain.exception.TransferNotFoundException;
-import jakarta.validation.ConstraintViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Map;
-import java.util.stream.Collectors;
+import jakarta.validation.ConstraintViolationException;
 
 @RestControllerAdvice
 public class TransferExceptionHandler {
 
-    @ExceptionHandler(TransferNotFoundException.class)
-    public ProblemDetail handleTransferNotFound(
-            TransferNotFoundException exception
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.NOT_FOUND
-        );
+        @ExceptionHandler(TransferNotFoundException.class)
+        public ProblemDetail handleTransferNotFound(
+                        TransferNotFoundException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.NOT_FOUND);
 
-        problem.setTitle("Transfer not found");
-        problem.setDetail(exception.getMessage());
+                problem.setTitle("Transfer not found");
+                problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+                return problem;
+        }
 
-    @ExceptionHandler(IdempotencyConflictException.class)
-    public ProblemDetail handleIdempotencyConflict(
-            IdempotencyConflictException exception
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.CONFLICT
-        );
+        @ExceptionHandler(IdempotencyConflictException.class)
+        public ProblemDetail handleIdempotencyConflict(
+                        IdempotencyConflictException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.CONFLICT);
 
-        problem.setTitle("Idempotency key conflict");
-        problem.setDetail(exception.getMessage());
+                problem.setTitle("Idempotency key conflict");
+                problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+                return problem;
+        }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleValidation(
-            MethodArgumentNotValidException exception
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ProblemDetail handleValidation(
+                        MethodArgumentNotValidException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.BAD_REQUEST);
 
-        problem.setTitle("Validation failed");
+                problem.setTitle("Validation failed");
 
-        Map<String, String> errors = exception
-                .getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .collect(Collectors.toMap(
-                        error -> error.getField(),
-                        error -> error.getDefaultMessage() == null
-                                ? "Invalid value"
-                                : error.getDefaultMessage(),
-                        (first, second) -> first
-                ));
+                Map<String, String> errors = exception
+                                .getBindingResult()
+                                .getFieldErrors()
+                                .stream()
+                                .collect(Collectors.toMap(
+                                                error -> error.getField(),
+                                                error -> error.getDefaultMessage() == null
+                                                                ? "Invalid value"
+                                                                : error.getDefaultMessage(),
+                                                (first, second) -> first));
 
-        problem.setProperty("errors", errors);
+                problem.setProperty("errors", errors);
 
-        return problem;
-    }
+                return problem;
+        }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ProblemDetail handleIllegalArgument(
-            IllegalArgumentException exception
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
+        @ExceptionHandler(IllegalArgumentException.class)
+        public ProblemDetail handleIllegalArgument(
+                        IllegalArgumentException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.BAD_REQUEST);
 
-        problem.setTitle("Invalid request");
-        problem.setDetail(exception.getMessage());
+                problem.setTitle("Invalid request");
+                problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+                return problem;
+        }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ProblemDetail handleConstraintViolation(
-            ConstraintViolationException exception
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.BAD_REQUEST
-        );
+        @ExceptionHandler(ConstraintViolationException.class)
+        public ProblemDetail handleConstraintViolation(
+                        ConstraintViolationException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.BAD_REQUEST);
 
-        problem.setTitle("Constraint violation");
-        problem.setDetail(exception.getMessage());
+                problem.setTitle("Constraint violation");
+                problem.setDetail(exception.getMessage());
 
-        return problem;
-    }
+                return problem;
+        }
 
-    @ExceptionHandler({
-            RecipientAccountNotActiveException.class,
-            RecipientCurrencyMismatchException.class
-    })
-    public ProblemDetail handleRecipientValidation(RuntimeException exception) {
+        @ExceptionHandler(HttpMessageNotReadableException.class)
+        public ProblemDetail handleUnreadableMessage(
+                        HttpMessageNotReadableException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.BAD_REQUEST);
 
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.UNPROCESSABLE_ENTITY);
+                problem.setTitle("Malformed request body");
+                problem.setDetail(
+                                "Request body is missing, contains invalid JSON syntax, "
+                                                + "or has an invalid field format (e.g., invalid UUID or non-numeric amount).");
 
-        problem.setTitle("Recipient account cannot receive this transfer");
-        problem.setDetail(exception.getMessage());
+                return problem;
+        }
 
-        return problem;
-    }
+        @ExceptionHandler({
+                        RecipientAccountNotActiveException.class,
+                        RecipientCurrencyMismatchException.class
+        })
+        public ProblemDetail handleRecipientValidation(RuntimeException exception) {
 
-    @ExceptionHandler(RecipientAccountNotFoundException.class)
-    public ProblemDetail handleRecipientNotFound(
-            RecipientAccountNotFoundException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.UNPROCESSABLE_ENTITY);
 
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.NOT_FOUND);
+                problem.setTitle("Recipient account cannot receive this transfer");
+                problem.setDetail(exception.getMessage());
 
-        problem.setTitle("Recipient account not found");
-        problem.setDetail(exception.getMessage());
+                return problem;
+        }
 
-        return problem;
-    }
+        @ExceptionHandler(RecipientAccountNotFoundException.class)
+        public ProblemDetail handleRecipientNotFound(
+                        RecipientAccountNotFoundException exception) {
 
-    @ExceptionHandler(RecipientLookupUnavailableException.class)
-    public ProblemDetail handleRecipientLookupUnavailable(
-            RecipientLookupUnavailableException exception) {
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.NOT_FOUND);
 
-        ProblemDetail problem = ProblemDetail.forStatus(
-                HttpStatus.SERVICE_UNAVAILABLE);
+                problem.setTitle("Recipient account not found");
+                problem.setDetail(exception.getMessage());
 
-        problem.setTitle("Recipient lookup unavailable");
-        problem.setDetail(
-                "Recipient account verification is temporarily unavailable");
+                return problem;
+        }
 
-        return problem;
-    }
+        @ExceptionHandler(RecipientLookupUnavailableException.class)
+        public ProblemDetail handleRecipientLookupUnavailable(
+                        RecipientLookupUnavailableException exception) {
+
+                ProblemDetail problem = ProblemDetail.forStatus(
+                                HttpStatus.SERVICE_UNAVAILABLE);
+
+                problem.setTitle("Recipient lookup unavailable");
+                problem.setDetail(
+                                "Recipient account verification is temporarily unavailable");
+
+                return problem;
+        }
 }
