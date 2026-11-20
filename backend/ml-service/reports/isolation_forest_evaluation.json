@@ -1,0 +1,106 @@
+{
+  "model_version": "iforest-synthetic-v2",
+  "features": [
+    "amount",
+    "transaction_duration_ms",
+    "debit_processing_time",
+    "credit_processing_time",
+    "transactions_last_10min",
+    "transactions_last_1h"
+  ],
+  "training": {
+    "training_split": "train",
+    "training_samples": 11400,
+    "training_anomalies_excluded": 600,
+    "labels_used_as_training_targets": false,
+    "n_estimators": 300,
+    "contamination": "auto",
+    "random_seed": 42,
+    "threshold_selection": "validation_max_f1"
+  },
+  "threshold_selection": {
+    "method": "maximum_validation_f1",
+    "tie_breaker": [
+      "higher_precision",
+      "higher_threshold"
+    ],
+    "anomaly_score_threshold": 0.694002178675701,
+    "validation_metrics": {
+      "sample_count": 4000,
+      "normal_count": 3800,
+      "anomaly_count": 200,
+      "precision": 0.708502,
+      "recall": 0.875,
+      "f1": 0.782998,
+      "false_positive_rate": 0.018947,
+      "confusion_matrix": {
+        "labels": [
+          "NORMAL",
+          "ANOMALY"
+        ],
+        "matrix": [
+          [
+            3728,
+            72
+          ],
+          [
+            25,
+            175
+          ]
+        ],
+        "true_negative": 3728,
+        "false_positive": 72,
+        "false_negative": 25,
+        "true_positive": 175
+      }
+    }
+  },
+  "test_metrics": {
+    "sample_count": 4000,
+    "normal_count": 3800,
+    "anomaly_count": 200,
+    "precision": 0.679654,
+    "recall": 0.785,
+    "f1": 0.728538,
+    "false_positive_rate": 0.019474,
+    "confusion_matrix": {
+      "labels": [
+        "NORMAL",
+        "ANOMALY"
+      ],
+      "matrix": [
+        [
+          3726,
+          74
+        ],
+        [
+          43,
+          157
+        ]
+      ],
+      "true_negative": 3726,
+      "false_positive": 74,
+      "false_negative": 43,
+      "true_positive": 157
+    },
+    "by_anomaly_type": {
+      "AMOUNT": {
+        "sample_count": 70,
+        "detected_count": 36,
+        "recall": 0.514286
+      },
+      "FREQUENCY": {
+        "sample_count": 70,
+        "detected_count": 61,
+        "recall": 0.871429
+      },
+      "LATENCY": {
+        "sample_count": 60,
+        "detected_count": 60,
+        "recall": 1.0
+      }
+    },
+    "anomaly_score_threshold": 0.694002178675701
+  },
+  "score_interpretation": "Anomaly scores are monotonic signals in [0, 1], not calibrated probabilities."
+}
