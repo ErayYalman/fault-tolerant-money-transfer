@@ -23,11 +23,16 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import com.fintech.gateway.support.GatewayTestSecurityConfiguration;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
+@Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(GatewayTestSecurityConfiguration.class)
 class ApiGatewayRoutingIntegrationTest {
@@ -54,6 +59,18 @@ class ApiGatewayRoutingIntegrationTest {
                         .connectTimeout(Duration.ofSeconds(2))
                         .build();
 
+        private static final String REDIS_TEST_PASSWORD = "gateway-test-redis-password";
+
+        @SuppressWarnings("resource")
+        @Container
+        static final GenericContainer<?> REDIS = new GenericContainer<>(
+                        DockerImageName.parse("redis:8.10.3-alpine"))
+                        .withExposedPorts(6379)
+                        .withCommand(
+                                        "redis-server",
+                                        "--requirepass",
+                                        REDIS_TEST_PASSWORD);
+
         @LocalServerPort
         private int gatewayPort;
 
@@ -71,6 +88,22 @@ class ApiGatewayRoutingIntegrationTest {
                 registry.add(
                                 "GATEWAY_RESPONSE_TIMEOUT",
                                 () -> "2000ms");
+
+                registry.add("REDIS_HOST", REDIS::getHost);
+                registry.add(
+                                "REDIS_SERVER_PORT",
+                                () -> REDIS.getMappedPort(6379));
+                registry.add(
+                                "REDIS_PASSWORD",
+                                () -> REDIS_TEST_PASSWORD);
+
+                // Integration tests use a deliberately small bucket.
+                registry.add(
+                                "GATEWAY_TRANSFER_RATE_LIMIT_REPLENISH_RATE",
+                                () -> "1");
+                registry.add(
+                                "GATEWAY_TRANSFER_RATE_LIMIT_BURST_CAPACITY",
+                                () -> "2");
         }
 
         @BeforeEach
@@ -89,6 +122,21 @@ class ApiGatewayRoutingIntegrationTest {
                                                   "status": "DEBIT_REQUESTED"
                                                 }
                                                 """);
+
+                try {
+                        var result = REDIS.execInContainer(
+                                        "redis-cli",
+                                        "-a",
+                                        REDIS_TEST_PASSWORD,
+                                        "FLUSHDB");
+
+                        assertThat(result.getExitCode()).isZero();
+
+                } catch (Exception exception) {
+                        throw new IllegalStateException(
+                                        "Could not reset Redis test database",
+                                        exception);
+                }
         }
 
         @AfterAll
@@ -554,6 +602,40 @@ class ApiGatewayRoutingIntegrationTest {
                                 HttpResponse.BodyHandlers.ofString());
         }
 
+        private HttpResponse<String> sendCreateTransfer(
+                        String token,
+                        String spoofedUserId) throws Exception {
+
+                String requestBody = """
+                                {
+                                  "amount": 150.00,
+                                  "currency": "TRY",
+                                  "fromAccountId": "11111111-1111-1111-1111-111111111111",
+                                  "toAccountNumber": "BANK-B-RECIPIENT-001",
+                                  "idempotencyKey": "rate-limit-integration-test"
+                                }
+                                """;
+
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                                .uri(URI.create(
+                                                gatewayBaseUrl() + "/api/v1/transfers"))
+                                .header("Content-Type", "application/json")
+                                .header("Authorization", "Bearer " + token)
+                                .timeout(Duration.ofSeconds(5));
+
+                if (spoofedUserId != null) {
+                        requestBuilder.header("X-User-Id", spoofedUserId);
+                }
+
+                HttpRequest request = requestBuilder
+                                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                                .build();
+
+                return httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+        }
+
         private String gatewayBaseUrl() {
                 return "http://localhost:" + gatewayPort;
         }
@@ -614,5 +696,100 @@ class ApiGatewayRoutingIntegrationTest {
                 } finally {
                         exchange.close();
                 }
+        }
+
+        @Test
+        void shouldEnforceBurstCapacityForTransferCreation()
+                        throws Exception {
+
+                HttpResponse<String> first = sendCreateTransfer(
+                                "customer-test-token",
+                                null);
+
+                HttpResponse<String> second = sendCreateTransfer(
+                                "customer-test-token",
+                                null);
+
+                HttpResponse<String> third = sendCreateTransfer(
+                                "customer-test-token",
+                                null);
+
+                assertThat(first.statusCode()).isEqualTo(201);
+                assertThat(second.statusCode()).isEqualTo(201);
+
+                assertThat(third.statusCode()).isEqualTo(429);
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(2);
+        }
+
+        @Test
+        void shouldIsolateRateLimitBucketsByJwtSubject()
+                        throws Exception {
+
+                HttpResponse<String> firstUserFirstRequest = sendCreateTransfer(
+                                "customer-test-token",
+                                "spoofed-user-1");
+
+                HttpResponse<String> firstUserSecondRequest = sendCreateTransfer(
+                                "customer-alias-test-token",
+                                "spoofed-user-2");
+
+                HttpResponse<String> firstUserThirdRequest = sendCreateTransfer(
+                                "customer-test-token",
+                                "another-spoofed-user");
+
+                HttpResponse<String> secondUserFirstRequest = sendCreateTransfer(
+                                "second-customer-test-token",
+                                "spoofed-user-1");
+
+                HttpResponse<String> firstUserAfterSecondUser = sendCreateTransfer(
+                                "customer-alias-test-token",
+                                "spoofed-user-3");
+
+                assertThat(firstUserFirstRequest.statusCode()).isEqualTo(201);
+                assertThat(firstUserSecondRequest.statusCode()).isEqualTo(201);
+
+                // Same subject must share the same bucket.
+                assertThat(firstUserThirdRequest.statusCode()).isEqualTo(429);
+
+                // A different JWT subject must have an independent bucket.
+                assertThat(secondUserFirstRequest.statusCode()).isEqualTo(201);
+
+                // Client-controlled headers must not bypass the original user's limit.
+                assertThat(firstUserAfterSecondUser.statusCode()).isEqualTo(429);
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(3);
+        }
+
+        @Test
+        void shouldRejectTransferCreationWhenRedisIsUnavailable() throws Exception {
+                var pauseResult = REDIS.execInContainer(
+                                "redis-cli",
+                                "-a",
+                                REDIS_TEST_PASSWORD,
+                                "CLIENT",
+                                "PAUSE",
+                                "10000",
+                                "ALL");
+
+                assertThat(pauseResult.getExitCode()).isZero();
+
+                HttpResponse<String> response;
+
+                try {
+                        response = sendCreateTransfer("customer-test-token", null);
+                } finally {
+                        var unpauseResult = REDIS.execInContainer(
+                                        "redis-cli",
+                                        "-a",
+                                        REDIS_TEST_PASSWORD,
+                                        "CLIENT",
+                                        "UNPAUSE");
+
+                        assertThat(unpauseResult.getExitCode()).isZero();
+                }
+
+                assertThat(response.statusCode()).isEqualTo(503);
+                assertThat(REQUEST_COUNT.get()).isZero();
         }
 }

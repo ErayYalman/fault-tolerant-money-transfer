@@ -1,4 +1,3 @@
-
 package com.fintech.gateway.support;
 
 import java.time.Instant;
@@ -49,9 +48,6 @@ public class GatewayTestSecurityConfiguration {
                                                                 List.of("CUSTOMER"),
                                                                 now));
 
-                                default -> Mono.error(
-                                                new JwtException("Unknown test token"));
-
                                 case "admin-test-token" -> Mono.just(
                                                 createJwt(
                                                                 token,
@@ -65,6 +61,25 @@ public class GatewayTestSecurityConfiguration {
                                                                 "another-client",
                                                                 List.of("OPERATIONS"),
                                                                 now));
+
+                                case "customer-alias-test-token" -> Mono.just(
+                                                createJwt(
+                                                                token,
+                                                                "money-transfer-web",
+                                                                List.of("CUSTOMER"),
+                                                                now,
+                                                                "customer-test-token-subject"));
+
+                                case "second-customer-test-token" -> Mono.just(
+                                                createJwt(
+                                                                token,
+                                                                "money-transfer-web",
+                                                                List.of("CUSTOMER"),
+                                                                now,
+                                                                "second-customer-subject"));
+
+                                default -> Mono.error(
+                                                new JwtException("Unknown test token"));
                         };
                 };
         }
@@ -75,6 +90,21 @@ public class GatewayTestSecurityConfiguration {
                         List<String> roles,
                         Instant now) {
 
+                return createJwt(
+                                token,
+                                authorizedParty,
+                                roles,
+                                now,
+                                token + "-subject");
+        }
+
+        private Jwt createJwt(
+                        String token,
+                        String authorizedParty,
+                        List<String> roles,
+                        Instant now,
+                        String subject) {
+
                 return Jwt.withTokenValue(token)
                                 .header("alg", "RS256")
                                 .claim("iss", ISSUER)
@@ -82,6 +112,7 @@ public class GatewayTestSecurityConfiguration {
                                 .claim("azp", authorizedParty)
                                 .claim("realm_access", Map.of(
                                                 "roles", roles))
+                                .subject(subject)
                                 .issuedAt(now)
                                 .expiresAt(now.plusSeconds(300))
                                 .build();

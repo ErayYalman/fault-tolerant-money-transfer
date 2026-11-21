@@ -36,16 +36,30 @@ spring:
             response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:5s}
 
           routes:
+            - id: transfer-create-rate-limited
+              uri: ${GATEWAY_TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
+              predicates:
+                - Path=/api/v1/transfers
+                - Method=POST
+              filters:
+                - name: FailClosedRequestRateLimiter
+                  args:
+                    key-resolver: "#{@jwtSubjectKeyResolver}"
+                    redis-rate-limiter.replenishRate: ${GATEWAY_TRANSFER_RATE_LIMIT_REPLENISH_RATE:5}
+                    redis-rate-limiter.burstCapacity: ${GATEWAY_TRANSFER_RATE_LIMIT_BURST_CAPACITY:10}
+                    redis-rate-limiter.requestedTokens: 1
+
             - id: transfer-service
               uri: ${GATEWAY_TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/v1/transfers,/api/v1/transfers/**
+                - Method=GET
 
             - id: recipient-lookup
               uri: ${GATEWAY_TRANSFER_SERVICE_BASE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/v1/recipients,/api/v1/recipients/**
-                 
+
             - id: reconciliation-service
               uri: ${GATEWAY_RECONCILIATION_SERVICE_BASE_URL:http://localhost:8083}
               predicates:
