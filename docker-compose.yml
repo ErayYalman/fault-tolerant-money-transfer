@@ -168,6 +168,34 @@ services:
     networks:
       - fintech-network
 
+  redis-rate-limiter:
+    image: redis:8.10.3-alpine
+    container_name: redis-rate-limiter
+    restart: unless-stopped
+
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly no --requirepass "$$REDIS_PASSWORD"
+
+    ports:
+      - "${REDIS_HOST_BIND:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+    networks:
+      - fintech-network
+
 networks:
   fintech-network:
     driver: bridge
