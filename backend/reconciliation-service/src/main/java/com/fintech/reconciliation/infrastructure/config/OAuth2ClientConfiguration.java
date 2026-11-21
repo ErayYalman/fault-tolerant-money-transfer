@@ -1,4 +1,4 @@
-﻿package com.fintech.reconciliation.infrastructure.config;
+package com.fintech.reconciliation.infrastructure.config;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
