@@ -1,0 +1,17 @@
+.git
+.venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
+*.py[cod]
+
+data/
+model/
+reports/
+
+.env
+.env.*
+
+*.log
+.DS_Store
