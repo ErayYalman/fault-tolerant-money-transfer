@@ -213,7 +213,6 @@ public final class Transfer {
         transitionTo(TransferStatus.COMPENSATED, now);
 
         this.completedAt = now;
-        this.failureReason = null;
     }
 
     private void transitionTo(

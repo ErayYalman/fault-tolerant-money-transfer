@@ -12,6 +12,14 @@ services:
       - "5432:5432"
     volumes:
       - postgres_transfer_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - fintech-network
 
@@ -27,6 +35,14 @@ services:
       - "5433:5432"
     volumes:
       - postgres_payment_a_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - fintech-network
 
@@ -42,6 +58,14 @@ services:
       - "5434:5432"
     volumes:
       - postgres_payment_b_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - fintech-network
 
@@ -57,6 +81,14 @@ services:
       - "5435:5432"
     volumes:
       - postgres_reconciliation_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - fintech-network
 
@@ -97,10 +129,23 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-kc-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}
 
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
 
     ports:
       - "${KEYCLOAK_HOST_BIND:-127.0.0.1}:${KEYCLOAK_HTTP_PORT:-8180}:8080"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c '{ printf "HEAD /health/ready HTTP/1.0\r\n\r\n" >&0; grep -q "200 OK"; } 0<>/dev/tcp/localhost/9000'
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
     depends_on:
       postgres-keycloak:
@@ -165,6 +210,16 @@ services:
       - "9092:9092"
     volumes:
       - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        - CMD
+        - /opt/kafka/bin/kafka-broker-api-versions.sh
+        - --bootstrap-server
+        - localhost:19092
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
     networks:
       - fintech-network
 
@@ -192,6 +247,253 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+
+    networks:
+      - fintech-network
+
+  transfer-service:
+    image: money-transfer/transfer-service:local
+    container_name: transfer-service
+    restart: unless-stopped
+
+    environment:
+      SERVER_PORT: 8080
+
+      # PostgreSQL
+      POSTGRES_HOST: postgres-transfer
+      POSTGRES_PORT: 5432
+      POSTGRES_TRANSFER_DB: ${POSTGRES_TRANSFER_DB}
+      POSTGRES_TRANSFER_USER: ${POSTGRES_TRANSFER_USER}
+      POSTGRES_TRANSFER_PASSWORD: ${POSTGRES_TRANSFER_PASSWORD}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      KAFKA_CONSUMER_GROUP_ID: transfer-service
+      KAFKA_TOPIC_PARTITIONS: 3
+
+      # Keycloak - JWT validation
+      # Issuer stays localhost because it must match the JWT iss claim.
+      TRANSFER_KEYCLOAK_ISSUER: ${TRANSFER_KEYCLOAK_ISSUER:-http://localhost:8180/realms/money-transfer}
+      TRANSFER_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/money-transfer/protocol/openid-connect/certs
+      TRANSFER_SERVICE_OIDC_AUDIENCE: ${TRANSFER_SERVICE_OIDC_AUDIENCE:-transfer-service}
+
+      # Keycloak - M2M client credentials for Payment B lookup
+      TRANSFER_SERVICE_OIDC_CLIENT_ID: ${TRANSFER_SERVICE_OIDC_CLIENT_ID:-transfer-service-client}
+      TRANSFER_SERVICE_OIDC_CLIENT_SECRET: ${TRANSFER_SERVICE_OIDC_CLIENT_SECRET:?TRANSFER_SERVICE_OIDC_CLIENT_SECRET must be set}
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/money-transfer/protocol/openid-connect/token
+
+      # Payment B recipient lookup
+      PAYMENT_B_SERVICE_BASE_URL: http://payment-service-b:8082
+
+    ports:
+      - "${TRANSFER_SERVICE_HOST_BIND:-127.0.0.1}:${TRANSFER_SERVICE_PORT:-8080}:8080"
+
+    depends_on:
+      postgres-transfer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+    networks:
+      - fintech-network
+
+  payment-service-a:
+    image: money-transfer/payment-service-a:local
+    container_name: payment-service-a
+    restart: unless-stopped
+
+    environment:
+      PAYMENT_A_SERVER_PORT: 8081
+
+      # PostgreSQL
+      POSTGRES_PAYMENT_A_HOST: postgres-payment-a
+      POSTGRES_PAYMENT_A_PORT: 5432
+      POSTGRES_PAYMENT_A_DB: ${POSTGRES_PAYMENT_A_DB}
+      POSTGRES_PAYMENT_A_USER: ${POSTGRES_PAYMENT_A_USER}
+      POSTGRES_PAYMENT_A_PASSWORD: ${POSTGRES_PAYMENT_A_PASSWORD}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      KAFKA_PAYMENT_A_CONSUMER_GROUP_ID: payment-service-a
+      KAFKA_CONSUMER_RETRY_INTERVAL_MS: 1000
+
+      # Keycloak - JWT validation
+      # JWT issuer must match the iss claim.
+      PAYMENT_A_KEYCLOAK_ISSUER: ${PAYMENT_A_KEYCLOAK_ISSUER:-http://localhost:8180/realms/money-transfer}
+      PAYMENT_A_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/money-transfer/protocol/openid-connect/certs
+      PAYMENT_A_SERVICE_OIDC_AUDIENCE: ${PAYMENT_A_SERVICE_OIDC_AUDIENCE:-payment-service-a}
+
+    ports:
+      - "${PAYMENT_A_HOST_BIND:-127.0.0.1}:${PAYMENT_A_HOST_PORT:-8081}:8081"
+
+    depends_on:
+      postgres-payment-a:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+    networks:
+      - fintech-network
+
+  payment-service-b:
+    image: money-transfer/payment-service-b:local
+    container_name: payment-service-b
+    restart: unless-stopped
+
+    environment:
+      PAYMENT_B_SERVER_PORT: 8082
+
+      # PostgreSQL
+      POSTGRES_PAYMENT_B_HOST: postgres-payment-b
+      POSTGRES_PAYMENT_B_PORT: 5432
+      POSTGRES_PAYMENT_B_DB: ${POSTGRES_PAYMENT_B_DB}
+      POSTGRES_PAYMENT_B_USER: ${POSTGRES_PAYMENT_B_USER}
+      POSTGRES_PAYMENT_B_PASSWORD: ${POSTGRES_PAYMENT_B_PASSWORD}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      KAFKA_PAYMENT_B_CONSUMER_GROUP_ID: payment-service-b
+
+      # Keycloak - OIDC Resource Server
+      # Internal address is used for OIDC discovery/JWKS.
+      PAYMENT_B_KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080/realms/money-transfer
+      PAYMENT_B_KEYCLOAK_DISCOVERY_ENABLED: "false"
+
+      # Issuer must match the JWT iss claim.
+      PAYMENT_B_KEYCLOAK_ISSUER: ${PAYMENT_B_KEYCLOAK_ISSUER:-http://localhost:8180/realms/money-transfer}
+
+      PAYMENT_B_SERVICE_OIDC_AUDIENCE: ${PAYMENT_B_SERVICE_OIDC_AUDIENCE:-payment-service-b}
+
+      # Reconciliation Service authorization
+      PAYMENT_B_OIDC_AUTHORIZED_PARTY: reconciliation-service
+
+      # Transfer Service recipient lookup authorization
+      PAYMENT_B_RECIPIENT_LOOKUP_AUTHORIZED_PARTY: transfer-service-client
+
+    ports:
+      - "${PAYMENT_B_HOST_BIND:-127.0.0.1}:${PAYMENT_B_HOST_PORT:-8082}:8082"
+
+    depends_on:
+      postgres-payment-b:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+    networks:
+      - fintech-network
+
+  reconciliation-service:
+    image: money-transfer/reconciliation-service:local
+    container_name: reconciliation-service
+    restart: unless-stopped
+
+    environment:
+      RECONCILIATION_SERVER_PORT: 8083
+      RECONCILIATION_TIME_ZONE: Europe/Istanbul
+
+      # PostgreSQL
+      POSTGRES_RECONCILIATION_HOST: postgres-reconciliation
+      POSTGRES_RECONCILIATION_PORT: 5432
+      POSTGRES_RECONCILIATION_DB: ${POSTGRES_RECONCILIATION_DB}
+      POSTGRES_RECONCILIATION_USER: ${POSTGRES_RECONCILIATION_USER}
+      POSTGRES_RECONCILIATION_PASSWORD: ${POSTGRES_RECONCILIATION_PASSWORD}
+
+      # Keycloak - JWT validation
+      # Issuer must match the iss claim in access tokens.
+      RECONCILIATION_KEYCLOAK_ISSUER: ${RECONCILIATION_KEYCLOAK_ISSUER:-http://localhost:8180/realms/money-transfer}
+      RECONCILIATION_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/money-transfer/protocol/openid-connect/certs
+      RECONCILIATION_SERVICE_OIDC_AUDIENCE: ${RECONCILIATION_SERVICE_OIDC_AUDIENCE:-reconciliation-service}
+
+      # Keycloak - OAuth2 Client Credentials
+      RECONCILIATION_OIDC_CLIENT_ID: ${RECONCILIATION_OIDC_CLIENT_ID:-reconciliation-service}
+      RECONCILIATION_OIDC_CLIENT_SECRET: ${RECONCILIATION_OIDC_CLIENT_SECRET:?RECONCILIATION_OIDC_CLIENT_SECRET must be set}
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/money-transfer/protocol/openid-connect/token
+
+      # Internal service-to-service communication
+      TRANSFER_SERVICE_BASE_URL: http://transfer-service:8080
+      PAYMENT_A_SERVICE_BASE_URL: http://payment-service-a:8081
+      PAYMENT_B_SERVICE_BASE_URL: http://payment-service-b:8082
+      ML_SERVICE_BASE_URL: http://ml-anomaly-service:8090
+
+      # Reconciliation pagination
+      RECONCILIATION_CLIENT_PAGE_SIZE: 500
+
+      # Scheduled reconciliation
+      RECONCILIATION_SCHEDULE_ENABLED: ${RECONCILIATION_SCHEDULE_ENABLED:-true}
+      RECONCILIATION_SCHEDULE_CRON: ${RECONCILIATION_SCHEDULE_CRON:-0 0 3 * * *}
+
+    ports:
+      - "${RECONCILIATION_HOST_BIND:-127.0.0.1}:${RECONCILIATION_HOST_PORT:-8083}:8083"
+
+    depends_on:
+      postgres-reconciliation:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      transfer-service:
+        condition: service_started
+      payment-service-a:
+        condition: service_started
+      payment-service-b:
+        condition: service_started
+      ml-anomaly-service:
+        condition: service_healthy
+
+    networks:
+      - fintech-network
+
+  api-gateway:
+    image: money-transfer/api-gateway:local
+    container_name: api-gateway
+    restart: unless-stopped
+
+    environment:
+      API_GATEWAY_SERVER_PORT: 8084
+
+      # Keycloak - JWT validation
+      # Issuer must match the JWT iss claim.
+      GATEWAY_KEYCLOAK_ISSUER: ${GATEWAY_KEYCLOAK_ISSUER:-http://localhost:8180/realms/money-transfer}
+      GATEWAY_KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/money-transfer/protocol/openid-connect/certs
+      GATEWAY_SERVICE_OIDC_AUDIENCE: ${GATEWAY_SERVICE_OIDC_AUDIENCE:-api-gateway}
+
+      # Redis - Fail-closed rate limiting
+      REDIS_HOST: redis-rate-limiter
+      REDIS_SERVER_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+
+      # Initial rate-limit settings
+      GATEWAY_TRANSFER_RATE_LIMIT_REPLENISH_RATE: ${GATEWAY_TRANSFER_RATE_LIMIT_REPLENISH_RATE:-5}
+      GATEWAY_TRANSFER_RATE_LIMIT_BURST_CAPACITY: ${GATEWAY_TRANSFER_RATE_LIMIT_BURST_CAPACITY:-10}
+
+      # Internal service routes
+      GATEWAY_TRANSFER_SERVICE_BASE_URL: http://transfer-service:8080
+      GATEWAY_PAYMENT_A_SERVICE_BASE_URL: http://payment-service-a:8081
+      GATEWAY_RECONCILIATION_SERVICE_BASE_URL: http://reconciliation-service:8083
+
+      # HTTP client
+      GATEWAY_CONNECT_TIMEOUT_MS: ${GATEWAY_CONNECT_TIMEOUT_MS:-2000}
+      GATEWAY_RESPONSE_TIMEOUT: ${GATEWAY_RESPONSE_TIMEOUT:-5s}
+
+    ports:
+      - "${API_GATEWAY_HOST_BIND:-127.0.0.1}:${API_GATEWAY_HOST_PORT:-8084}:8084"
+
+    depends_on:
+      redis-rate-limiter:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      transfer-service:
+        condition: service_started
+      payment-service-a:
+        condition: service_started
+      reconciliation-service:
+        condition: service_started
 
     networks:
       - fintech-network

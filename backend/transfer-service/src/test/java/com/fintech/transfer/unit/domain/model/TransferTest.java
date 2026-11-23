@@ -203,7 +203,7 @@ class TransferTest {
                                 .isEqualTo(T7);
 
                 assertThat(transfer.getFailureReason())
-                                .isNull();
+                                .isEqualTo("CREDIT_SERVICE_FAILURE");
 
                 assertThat(transfer.getUpdatedAt())
                                 .isEqualTo(T7);
