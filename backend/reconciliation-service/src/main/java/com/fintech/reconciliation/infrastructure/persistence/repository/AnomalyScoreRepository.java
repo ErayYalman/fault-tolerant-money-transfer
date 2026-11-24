@@ -10,5 +10,6 @@ import com.fintech.reconciliation.infrastructure.persistence.entity.AnomalyScore
 public interface AnomalyScoreRepository
         extends JpaRepository<AnomalyScoreEntity, UUID> {
 
-    List<AnomalyScoreEntity> findByRunIdOrderByScoredAtAsc(UUID runId);
+    List<AnomalyScoreEntity> findByRunIdOrderByScoredAtAscTransferIdAsc(
+            UUID runId);
 }

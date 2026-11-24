@@ -211,6 +211,8 @@ class ReconciliationMlFailureIntegrationTest {
                 assertThat(details.at("/anomalySummary/scoredCount").asInt())
                                 .isZero();
 
+                assertThat(details.path("anomalyScores")).isEmpty();
+
                 assertThat(details.at("/anomalySummary/errorMessage").asText())
                                 .contains("ML scoring failed for 1 of 1 eligible transfer(s)");
 

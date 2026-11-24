@@ -21,15 +21,18 @@ public record ReconciliationRunDetailsResponse(
         Instant finishedAt,
         String errorMessage,
         List<ReconciliationDiscrepancyResponse> discrepancies,
+        List<AnomalyScoreResponse> anomalyScores,
         AnomalySummaryResponse anomalySummary) {
 
     public ReconciliationRunDetailsResponse {
         discrepancies = List.copyOf(discrepancies);
+        anomalyScores = List.copyOf(anomalyScores);
     }
 
     public static ReconciliationRunDetailsResponse from(
             ReconciliationRunRecord run,
             List<ReconciliationDiscrepancyResponse> discrepancies,
+            List<AnomalyScoreResponse> anomalyScores,
             AnomalySummaryResponse anomalySummary) {
 
         return new ReconciliationRunDetailsResponse(
@@ -46,6 +49,7 @@ public record ReconciliationRunDetailsResponse(
                 run.finishedAt(),
                 run.errorMessage(),
                 discrepancies,
+                anomalyScores,
                 anomalySummary);
     }
 }

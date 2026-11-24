@@ -143,7 +143,7 @@ public class ReconciliationRunPersistenceAdapter
         public List<AnomalyScoreRecord> findAnomalyScores(UUID runId) {
 
                 return anomalyScoreRepository
-                                .findByRunIdOrderByScoredAtAsc(runId)
+                                .findByRunIdOrderByScoredAtAscTransferIdAsc(runId)
                                 .stream()
                                 .map(ReconciliationRunPersistenceAdapter::toScoreRecord)
                                 .toList();

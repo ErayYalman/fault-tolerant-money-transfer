@@ -121,6 +121,7 @@ class ReconciliationRunApiIntegrationTest {
                                 .isEqualTo(1);
                 assertThat(runResponse.at("/discrepancies/0/ruleCode").asText())
                                 .isEqualTo("MISSING_CREDIT");
+                assertThat(runResponse.path("anomalyScores")).isEmpty();
 
                 String status = jdbcTemplate.queryForObject(
                                 "SELECT status FROM reconciliation_runs WHERE id = ?",
@@ -280,7 +281,11 @@ class ReconciliationRunApiIntegrationTest {
                 UUID correlation1 = UUID.randomUUID();
                 UUID correlation2 = UUID.randomUUID();
 
-                Instant scoredAt = Instant.parse("2026-10-20T03:00:00Z");
+                Instant firstScoredAt =
+                                Instant.parse("2026-10-20T03:00:00Z");
+
+                Instant secondScoredAt =
+                                Instant.parse("2026-10-20T03:01:00Z");
 
                 List<AnomalyScoreRecord> scores = List.of(
                                 new AnomalyScoreRecord(
@@ -289,14 +294,14 @@ class ReconciliationRunApiIntegrationTest {
                                                 0.91,
                                                 "iforest-test-v1",
                                                 true,
-                                                scoredAt),
+                                                firstScoredAt),
                                 new AnomalyScoreRecord(
                                                 transfer2,
                                                 correlation2,
                                                 0.12,
                                                 "iforest-test-v1",
                                                 false,
-                                                scoredAt));
+                                                secondScoredAt));
 
                 when(analysisService.analyze(
                                 any(Instant.class),
@@ -317,6 +322,39 @@ class ReconciliationRunApiIntegrationTest {
                 assertThat(result.at("/anomalySummary/scoredCount").asLong()).isEqualTo(2);
                 assertThat(result.at("/anomalySummary/anomalyCount").asLong()).isEqualTo(1);
 
+                JsonNode anomalyScores = result.path("anomalyScores");
+
+                assertThat(anomalyScores).hasSize(2);
+
+                // İlk transfer: anomali olarak işaretlenmiş.
+                assertThat(anomalyScores.get(0).path("transferId").asText())
+                                .isEqualTo(transfer1.toString());
+
+                assertThat(anomalyScores.get(0).path("correlationId").asText())
+                                .isEqualTo(correlation1.toString());
+
+                assertThat(anomalyScores.get(0).path("anomalyScore").asDouble())
+                                .isEqualTo(0.91);
+
+                assertThat(anomalyScores.get(0).path("modelVersion").asText())
+                                .isEqualTo("iforest-test-v1");
+
+                assertThat(anomalyScores.get(0).path("isAnomaly").asBoolean())
+                                .isTrue();
+
+                assertThat(anomalyScores.get(0).path("scoredAt").asText())
+                                .isEqualTo(firstScoredAt.toString());
+
+                // İkinci transfer: anomali olarak işaretlenmemiş.
+                assertThat(anomalyScores.get(1).path("transferId").asText())
+                                .isEqualTo(transfer2.toString());
+
+                assertThat(anomalyScores.get(1).path("anomalyScore").asDouble())
+                                .isEqualTo(0.12);
+
+                assertThat(anomalyScores.get(1).path("isAnomaly").asBoolean())
+                                .isFalse();
+
                 Integer savedScores = jdbcTemplate.queryForObject(
                                 "SELECT COUNT(*) FROM anomaly_scores WHERE run_id = ?",
                                 Integer.class,
@@ -333,5 +371,27 @@ class ReconciliationRunApiIntegrationTest {
 
                 assertThat(savedScores).isEqualTo(2);
                 assertThat(savedAnomalies).isEqualTo(1);
+
+                HttpHeaders detailHeaders = new HttpHeaders();
+                detailHeaders.setBearerAuth("operations-test-token");
+
+                ResponseEntity<String> detailsResponse = restTemplate.exchange(
+                                baseUrl() + "/api/v1/reconciliation/runs/" + runId,
+                                HttpMethod.GET,
+                                new HttpEntity<>(detailHeaders),
+                                String.class);
+
+                assertThat(detailsResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode details = objectMapper.readTree(detailsResponse.getBody());
+
+                assertThat(details.path("anomalyScores")).hasSize(2);
+
+                assertThat(details.at("/anomalySummary/scoredCount").asLong())
+                                .isEqualTo(2);
+
+                assertThat(details.at("/anomalySummary/anomalyCount").asLong())
+                                .isEqualTo(1);
         }
 }
