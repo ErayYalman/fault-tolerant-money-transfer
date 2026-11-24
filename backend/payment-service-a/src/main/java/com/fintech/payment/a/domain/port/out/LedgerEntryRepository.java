@@ -1,6 +1,7 @@
 package com.fintech.payment.a.domain.port.out;
 
 import com.fintech.payment.a.domain.model.LedgerEntry;
+import com.fintech.payment.a.domain.model.LedgerEntryPage;
 import com.fintech.payment.a.domain.model.LedgerEntryType;
 
 import java.time.Instant;
@@ -20,6 +21,12 @@ public interface LedgerEntryRepository {
     List<LedgerEntry> findByCreatedAtRange(
             Instant fromInclusive,
             Instant toExclusive,
+            int page,
+            int size
+    );
+
+    LedgerEntryPage findPageByAccountId(
+            UUID accountId,
             int page,
             int size
     );

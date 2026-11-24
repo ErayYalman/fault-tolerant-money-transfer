@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fintech.payment.a.domain.model.LedgerEntry;
+import com.fintech.payment.a.domain.model.LedgerEntryPage;
 import com.fintech.payment.a.domain.model.LedgerEntryType;
 import com.fintech.payment.a.domain.port.out.LedgerEntryRepository;
 import com.fintech.payment.a.infrastructure.persistence.mapper.LedgerEntryPersistenceMapper;
@@ -59,5 +60,29 @@ public class LedgerEntryPersistenceAdapter implements LedgerEntryRepository {
                         PageRequest.of(page, size))
                 .map(mapper::toDomain)
                 .getContent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LedgerEntryPage findPageByAccountId(
+            UUID accountId,
+            int page,
+            int size) {
+
+        var ledgerPage = repository
+                .findByAccountIdOrderByCreatedAtDescIdDesc(
+                        accountId,
+                        PageRequest.of(page, size));
+
+        return new LedgerEntryPage(
+                ledgerPage.getContent()
+                        .stream()
+                        .map(mapper::toDomain)
+                        .toList(),
+                ledgerPage.getNumber(),
+                ledgerPage.getSize(),
+                ledgerPage.getTotalElements(),
+                ledgerPage.getTotalPages()
+        );
     }
 }

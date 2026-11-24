@@ -21,4 +21,8 @@ public interface LedgerEntryJpaRepository extends JpaRepository<LedgerEntryJpaEn
                         Instant fromInclusive,
                         Instant toExclusive,
                         Pageable pageable);
+
+        Page<LedgerEntryJpaEntity> findByAccountIdOrderByCreatedAtDescIdDesc(
+                        UUID accountId,
+                        Pageable pageable);
 }

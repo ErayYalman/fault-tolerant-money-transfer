@@ -70,6 +70,10 @@ spring:
               predicates:
                 - Path=/api/v1/accounts,/api/v1/accounts/**
 
+app:
+  cors:
+    allowed-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+
 server:
   port: ${API_GATEWAY_SERVER_PORT:8084}
 

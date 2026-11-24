@@ -2,9 +2,11 @@ package com.fintech.gateway.config;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -17,6 +19,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import reactor.core.publisher.Mono;
 
@@ -25,6 +30,32 @@ import reactor.core.publisher.Mono;
 public class GatewaySecurityConfiguration {
 
         private static final String WEB_CLIENT_ID = "money-transfer-web";
+
+        @Bean
+        public CorsConfigurationSource gatewayCorsConfigurationSource(
+                        @Value("${app.cors.allowed-origin:http://localhost:5173}") String allowedOrigin) {
+
+                CorsConfiguration configuration = new CorsConfiguration();
+
+                configuration.setAllowedOrigins(List.of(allowedOrigin));
+
+                configuration.setAllowedMethods(List.of(
+                                "GET",
+                                "POST",
+                                "OPTIONS"));
+
+                configuration.setAllowedHeaders(List.of(
+                                "Authorization",
+                                "Content-Type"));
+
+                configuration.setMaxAge(3600L);
+
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+                source.registerCorsConfiguration("/**", configuration);
+
+                return source;
+        }
 
         @Bean
         public Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter() {
@@ -63,9 +94,11 @@ public class GatewaySecurityConfiguration {
         @Bean
         public SecurityWebFilterChain gatewaySecurityFilterChain(
                         ServerHttpSecurity http,
-                        Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter) {
+                        Converter<Jwt, Mono<AbstractAuthenticationToken>> gatewayJwtAuthenticationConverter,
+                        CorsConfigurationSource corsConfigurationSource) {
 
                 return http
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                                 .authorizeExchange(exchanges -> exchanges
 

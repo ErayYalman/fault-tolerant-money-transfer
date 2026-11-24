@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +68,9 @@ class AccountQueryApiIntegrationTest {
         @Autowired
         TestRestTemplate restTemplate;
 
+        private UUID customerAFirstAccountId;
+        private UUID customerBAccountId;
+
         @BeforeEach
         void cleanDatabase() {
                 jdbcTemplate.update("DELETE FROM inbox_messages");
@@ -74,10 +78,14 @@ class AccountQueryApiIntegrationTest {
                 jdbcTemplate.update("DELETE FROM outbox_events");
                 jdbcTemplate.update("DELETE FROM accounts");
 
-                insertAccount("BANK-A-001", "customer-a-subject", "1000.00");
+                customerAFirstAccountId = insertAccount(
+                                "BANK-A-001", "customer-a-subject", "1000.00");
+
                 insertAccount("BANK-A-002", "customer-a-subject", "2000.00");
                 insertAccount("BANK-A-003", "customer-a-subject", "3000.00");
-                insertAccount("BANK-B-001", "customer-b-subject", "4000.00");
+
+                customerBAccountId = insertAccount(
+                                "BANK-B-001", "customer-b-subject", "4000.00");
         }
 
         @Test
@@ -186,6 +194,214 @@ class AccountQueryApiIntegrationTest {
 
                 assertThat(response.getStatusCode())
                                 .isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void shouldReturnOwnedAccountLedgerWithStableDescendingPagination() {
+                UUID olderEntry = UUID.randomUUID();
+                UUID newerEntry = UUID.randomUUID();
+                UUID otherCustomerEntry = UUID.randomUUID();
+
+                insertLedger(
+                                customerAFirstAccountId,
+                                Instant.parse("2026-10-20T10:00:00Z"),
+                                olderEntry);
+
+                insertLedger(
+                                customerAFirstAccountId,
+                                Instant.parse("2026-10-20T11:00:00Z"),
+                                newerEntry);
+
+                insertLedger(
+                                customerBAccountId,
+                                Instant.parse("2026-10-20T12:00:00Z"),
+                                otherCustomerEntry);
+
+                JsonNode firstPage = getAccountLedger(
+                                CUSTOMER_A_TOKEN,
+                                customerAFirstAccountId,
+                                0,
+                                1);
+
+                assertThat(firstPage.path("content")).hasSize(1);
+                assertThat(firstPage.path("content").get(0)
+                                .path("correlationId").asText())
+                                .isEqualTo(newerEntry.toString());
+
+                assertThat(firstPage.path("content").get(0)
+                                .path("accountId").asText())
+                                .isEqualTo(customerAFirstAccountId.toString());
+
+                assertThat(firstPage.path("page").asInt()).isZero();
+                assertThat(firstPage.path("size").asInt()).isEqualTo(1);
+                assertThat(firstPage.path("totalElements").asLong()).isEqualTo(2);
+                assertThat(firstPage.path("totalPages").asInt()).isEqualTo(2);
+
+                JsonNode secondPage = getAccountLedger(
+                                CUSTOMER_A_TOKEN,
+                                customerAFirstAccountId,
+                                1,
+                                1);
+
+                assertThat(secondPage.path("content")).hasSize(1);
+                assertThat(secondPage.path("content").get(0)
+                                .path("correlationId").asText())
+                                .isEqualTo(olderEntry.toString());
+        }
+
+        @Test
+        void shouldNotRevealAnotherCustomersAccountLedger() {
+                ResponseEntity<JsonNode> response = exchangeAccountLedger(
+                                CUSTOMER_A_TOKEN,
+                                customerBAccountId,
+                                0,
+                                20);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void shouldReturnNotFoundForUnknownAccount() {
+                ResponseEntity<JsonNode> response = exchangeAccountLedger(
+                                CUSTOMER_A_TOKEN,
+                                UUID.randomUUID(),
+                                0,
+                                20);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @Test
+        void shouldRejectAccountLedgerRequestWithoutBearerToken() {
+                ResponseEntity<JsonNode> response = exchangeAccountLedger(
+                                null,
+                                customerAFirstAccountId,
+                                0,
+                                20);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void shouldRejectAccountLedgerRequestWithoutCustomerRole() {
+                ResponseEntity<JsonNode> response = exchangeAccountLedger(
+                                CUSTOMER_NO_ROLE_TOKEN,
+                                customerAFirstAccountId,
+                                0,
+                                20);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void shouldRejectInvalidAccountLedgerPagination() {
+                ResponseEntity<JsonNode> oversized = exchangeAccountLedger(
+                                CUSTOMER_A_TOKEN,
+                                customerAFirstAccountId,
+                                0,
+                                101);
+
+                assertThat(oversized.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+                ResponseEntity<JsonNode> negativePage = exchangeAccountLedger(
+                                CUSTOMER_A_TOKEN,
+                                customerAFirstAccountId,
+                                -1,
+                                20);
+
+                assertThat(negativePage.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        private JsonNode getAccountLedger(
+                        String token,
+                        UUID accountId,
+                        int page,
+                        int size) {
+
+                ResponseEntity<JsonNode> response = exchangeAccountLedger(
+                                token,
+                                accountId,
+                                page,
+                                size);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                assertThat(response.getBody()).isNotNull();
+
+                return response.getBody();
+        }
+
+        private ResponseEntity<JsonNode> exchangeAccountLedger(
+                        String token,
+                        UUID accountId,
+                        int page,
+                        int size) {
+
+                HttpHeaders headers = new HttpHeaders();
+
+                if (token != null) {
+                        headers.setBearerAuth(token);
+                }
+
+                return restTemplate.exchange(
+                                buildAccountLedgerUri(accountId, page, size),
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                JsonNode.class);
+        }
+
+        private URI buildAccountLedgerUri(
+                        UUID accountId,
+                        int page,
+                        int size) {
+
+                return UriComponentsBuilder
+                                .fromHttpUrl(
+                                                "http://localhost:" + port
+                                                                + "/api/v1/accounts/" + accountId + "/ledger")
+                                .queryParam("page", page)
+                                .queryParam("size", size)
+                                .build()
+                                .encode()
+                                .toUri();
+        }
+
+        private void insertLedger(
+                        UUID accountId,
+                        Instant createdAt,
+                        UUID correlationId) {
+
+                jdbcTemplate.update(
+                                """
+                                                INSERT INTO ledger_entries (
+                                                    id,
+                                                    transfer_id,
+                                                    correlation_id,
+                                                    account_id,
+                                                    amount,
+                                                    balance_before,
+                                                    balance_after,
+                                                    entry_type,
+                                                    status,
+                                                    created_at
+                                                )
+                                                VALUES (
+                                                    ?, ?, ?, ?, 10.00, 1000.00, 990.00,
+                                                    'DEBIT', 'COMPLETED', ?
+                                                )
+                                                """,
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                correlationId,
+                                accountId,
+                                java.sql.Timestamp.from(createdAt));
         }
 
         private JsonNode getAccounts(String token, int page, int size) {

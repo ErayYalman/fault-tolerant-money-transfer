@@ -582,6 +582,108 @@ class ApiGatewayRoutingIntegrationTest {
                 assertThat(REQUEST_COUNT.get()).isZero();
         }
 
+        @Test
+        void shouldAllowCorsPreflightFromFrontendOrigin() throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(gatewayBaseUrl() + "/api/v1/transfers"))
+                                .header("Origin", "http://localhost:5173")
+                                .header("Access-Control-Request-Method", "POST")
+                                .header(
+                                                "Access-Control-Request-Headers",
+                                                "authorization,content-type")
+                                .timeout(Duration.ofSeconds(5))
+                                .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(200);
+
+                assertThat(response.headers()
+                                .firstValue("Access-Control-Allow-Origin")
+                                .orElse(null))
+                                .isEqualTo("http://localhost:5173");
+
+                assertThat(response.headers()
+                                .firstValue("Access-Control-Allow-Methods")
+                                .orElse(""))
+                                .contains("POST");
+
+                String allowedHeaders = response.headers()
+                                .firstValue("Access-Control-Allow-Headers")
+                                .orElse("");
+
+                assertThat(allowedHeaders)
+                                .containsIgnoringCase("authorization");
+
+                assertThat(allowedHeaders)
+                                .containsIgnoringCase("content-type");
+
+                // Preflight request must not reach an application service.
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldRejectCorsPreflightFromUntrustedOrigin() throws Exception {
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(gatewayBaseUrl() + "/api/v1/transfers"))
+                                .header("Origin", "https://attacker.example")
+                                .header("Access-Control-Request-Method", "POST")
+                                .header(
+                                                "Access-Control-Request-Headers",
+                                                "authorization,content-type")
+                                .timeout(Duration.ofSeconds(5))
+                                .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(403);
+
+                assertThat(response.headers()
+                                .firstValue("Access-Control-Allow-Origin"))
+                                .isEmpty();
+
+                assertThat(REQUEST_COUNT.get()).isZero();
+        }
+
+        @Test
+        void shouldAddCorsHeadersToActualCustomerApiRequest() throws Exception {
+
+                UPSTREAM_STATUS.set(200);
+
+                HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(
+                                                gatewayBaseUrl() + "/api/v1/accounts?page=0&size=20"))
+                                .header("Origin", "http://localhost:5173")
+                                .header("Authorization", "Bearer customer-test-token")
+                                .timeout(Duration.ofSeconds(5))
+                                .GET()
+                                .build();
+
+                HttpResponse<String> response = httpClient.send(
+                                request,
+                                HttpResponse.BodyHandlers.ofString());
+
+                assertThat(response.statusCode()).isEqualTo(200);
+
+                assertThat(response.headers()
+                                .firstValue("Access-Control-Allow-Origin")
+                                .orElse(null))
+                                .isEqualTo("http://localhost:5173");
+
+                assertThat(REQUEST_COUNT.get()).isEqualTo(1);
+
+                assertThat(LAST_PATH.get())
+                                .isEqualTo("/api/v1/accounts?page=0&size=20");
+        }
+
         private HttpResponse<String> sendGet(String path) throws Exception {
                 return sendGet(path, "customer-test-token");
         }
