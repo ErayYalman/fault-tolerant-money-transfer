@@ -64,7 +64,12 @@ public class TransferController {
                         @ApiResponse(responseCode = "201", description = "Transfer successfully created"),
                         @ApiResponse(responseCode = "200", description = "Existing transfer returned for duplicate idempotency key"),
                         @ApiResponse(responseCode = "400", description = "Invalid request"),
-                        @ApiResponse(responseCode = "409", description = "Idempotency key was already used with a different request")
+                        @ApiResponse(responseCode = "401", description = "Authentication required"),
+                        @ApiResponse(responseCode = "403", description = "CUSTOMER role required"),
+                        @ApiResponse(responseCode = "404", description = "Recipient account not found"),
+                        @ApiResponse(responseCode = "409", description = "Idempotency key was already used with a different request"),
+                        @ApiResponse(responseCode = "422", description = "Recipient account is inactive or currency does not match"),
+                        @ApiResponse(responseCode = "503", description = "Recipient lookup service unavailable")
         })
         @PostMapping
         public ResponseEntity<TransferResponse> createTransfer(
@@ -91,7 +96,9 @@ public class TransferController {
         @Operation(summary = "Get transfer by ID", description = "Returns a transfer and its current lifecycle state.")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "Transfer found"),
-                        @ApiResponse(responseCode = "404", description = "Transfer not found")
+                        @ApiResponse(responseCode = "401", description = "Authentication required"),
+                        @ApiResponse(responseCode = "403", description = "CUSTOMER role required"),
+                        @ApiResponse(responseCode = "404", description = "Transfer not found or not owned by authenticated customer")
         })
         @GetMapping("/{id}")
         public ResponseEntity<TransferResponse> getTransfer(
@@ -106,6 +113,18 @@ public class TransferController {
                                 mapper.toResponse(transfer));
         }
 
+        @Operation(
+                        summary = "List customer transfers",
+                        description = """
+                                        Returns paginated transfers owned by the authenticated customer.
+                                        Results are isolated by the JWT subject claim.
+                                        """)
+        @ApiResponses({
+                        @ApiResponse(responseCode = "200", description = "Transfer page returned"),
+                        @ApiResponse(responseCode = "400", description = "Invalid pagination parameters"),
+                        @ApiResponse(responseCode = "401", description = "Authentication required"),
+                        @ApiResponse(responseCode = "403", description = "CUSTOMER role required")
+        })
         @GetMapping
         public ResponseEntity<TransferPageResponse> listTransfers(
                         @AuthenticationPrincipal Jwt jwt,

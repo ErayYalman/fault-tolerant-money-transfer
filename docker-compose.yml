@@ -253,6 +253,8 @@ services:
 
   transfer-service:
     image: money-transfer/transfer-service:local
+    build:
+      context: ./backend/transfer-service
     container_name: transfer-service
     restart: unless-stopped
 
@@ -301,6 +303,8 @@ services:
 
   payment-service-a:
     image: money-transfer/payment-service-a:local
+    build:
+      context: ./backend/payment-service-a
     container_name: payment-service-a
     restart: unless-stopped
 
@@ -341,6 +345,8 @@ services:
 
   payment-service-b:
     image: money-transfer/payment-service-b:local
+    build:
+      context: ./backend/payment-service-b
     container_name: payment-service-b
     restart: unless-stopped
 
@@ -390,6 +396,8 @@ services:
 
   reconciliation-service:
     image: money-transfer/reconciliation-service:local
+    build:
+      context: ./backend/reconciliation-service
     container_name: reconciliation-service
     restart: unless-stopped
 
@@ -450,6 +458,8 @@ services:
 
   api-gateway:
     image: money-transfer/api-gateway:local
+    build:
+      context: ./backend/api-gateway
     container_name: api-gateway
     restart: unless-stopped
 

@@ -91,6 +91,14 @@ public class ReconciliationSecurityConfiguration {
                                                                 "/actuator/health/**")
                                                 .permitAll()
 
+                                                // OpenAPI / Swagger UI documentation.
+                                                .requestMatchers(
+                                                                "/v3/api-docs",
+                                                                "/v3/api-docs/**",
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html")
+                                                .permitAll()
+
                                                 // Manual reconciliation and operational monitoring.
                                                 .requestMatchers(
                                                                 "/api/v1/reconciliation/**",

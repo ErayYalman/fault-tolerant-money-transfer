@@ -197,6 +197,57 @@ class ReconciliationRunApiIntegrationTest {
         }
 
         @Test
+        void shouldExposeOpenApiDocumentToAuthenticatedOperationsUser()
+                        throws Exception {
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth("operations-test-token");
+
+                ResponseEntity<String> response = restTemplate.exchange(
+                                baseUrl() + "/v3/api-docs",
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                String.class);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode openApi = objectMapper.readTree(response.getBody());
+
+                assertThat(openApi.path("paths")
+                                .has("/api/v1/reconciliation/run"))
+                                .isTrue();
+
+                assertThat(openApi.path("paths")
+                                .has("/api/v1/reconciliation/runs/{id}"))
+                                .isTrue();
+
+                assertThat(openApi.at(
+                                "/components/schemas/ReconciliationRunDetailsResponse/properties")
+                                .has("anomalyScores"))
+                                .isTrue();
+
+                assertThat(openApi.at(
+                                "/components/securitySchemes/bearerAuth/type").asText())
+                                .isEqualTo("http");
+
+                assertThat(openApi.at(
+                                "/components/securitySchemes/bearerAuth/scheme").asText())
+                                .isEqualTo("bearer");
+        }
+
+        @Test
+        void shouldRejectOpenApiDocumentRequestWithoutBearerToken() {
+
+                ResponseEntity<String> response = restTemplate.getForEntity(
+                                baseUrl() + "/v3/api-docs",
+                                String.class);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
         void shouldRejectManualRunWithoutBearerToken() {
                 ResponseEntity<String> response = postRun(
                                 "2026-10-20",

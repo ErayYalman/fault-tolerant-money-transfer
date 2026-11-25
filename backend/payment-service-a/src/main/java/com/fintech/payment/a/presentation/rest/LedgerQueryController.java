@@ -14,6 +14,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.fintech.payment.a.application.service.LedgerQueryService;
 import com.fintech.payment.a.presentation.dto.LedgerEntryResponse;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
+@Hidden
 @RestController
 @RequestMapping("/internal/ledger")
 public class LedgerQueryController {

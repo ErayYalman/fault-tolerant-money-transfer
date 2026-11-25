@@ -318,6 +318,51 @@ class AccountQueryApiIntegrationTest {
                                 .isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
+        @Test
+        void shouldExposeCustomerAccountApisOnlyInOpenApiDocument() {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth(CUSTOMER_A_TOKEN);
+
+                ResponseEntity<JsonNode> response = restTemplate.exchange(
+                                "http://localhost:" + port + "/v3/api-docs",
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                JsonNode.class);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                assertThat(response.getBody()).isNotNull();
+
+                JsonNode openApi = response.getBody();
+                JsonNode paths = openApi.path("paths");
+
+                assertThat(paths.has("/api/v1/accounts")).isTrue();
+
+                assertThat(paths.has("/api/v1/accounts/{accountId}/ledger"))
+                                .isTrue();
+
+                assertThat(paths.has("/internal/ledger")).isFalse();
+
+                assertThat(openApi.at(
+                                "/components/securitySchemes/bearerAuth/type").asText())
+                                .isEqualTo("http");
+
+                assertThat(openApi.at(
+                                "/components/securitySchemes/bearerAuth/scheme").asText())
+                                .isEqualTo("bearer");
+        }
+
+        @Test
+        void shouldRejectOpenApiDocumentRequestWithoutBearerToken() {
+                ResponseEntity<String> response = restTemplate.getForEntity(
+                                "http://localhost:" + port + "/v3/api-docs",
+                                String.class);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
         private JsonNode getAccountLedger(
                         String token,
                         UUID accountId,

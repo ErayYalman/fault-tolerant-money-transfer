@@ -14,6 +14,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.fintech.transfer.application.service.TransferLifecycleQueryService;
 import com.fintech.transfer.presentation.dto.Response.InternalTransferResponse;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
+@Hidden
 @RestController
 @RequestMapping("/internal/transfers")
 public class InternalTransferController {

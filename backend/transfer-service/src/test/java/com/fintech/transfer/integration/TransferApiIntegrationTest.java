@@ -32,6 +32,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.transfer.application.exception.RecipientLookupUnavailableException;
 import com.fintech.transfer.domain.model.RecipientAccount;
@@ -808,6 +809,48 @@ class TransferApiIntegrationTest {
         assertThat(transferCount).isZero();
         assertThat(sagaCount).isZero();
         assertThat(outboxCount).isZero();
+    }
+
+    @Test
+    void shouldExposeCustomerApiOnlyInOpenApiDocument() throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("customer-test-token");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                "http://localhost:" + port + "/v3/api-docs",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+
+        JsonNode openApi = objectMapper.readTree(response.getBody());
+        JsonNode paths = openApi.path("paths");
+
+        assertThat(paths.has("/api/v1/transfers")).isTrue();
+        assertThat(paths.has("/api/v1/transfers/{id}")).isTrue();
+        assertThat(paths.has("/api/v1/recipients/{accountNumber}")).isTrue();
+
+        assertThat(paths.has("/internal/transfers")).isFalse();
+
+        assertThat(openApi.at(
+                "/components/securitySchemes/bearerAuth/type").asText())
+                .isEqualTo("http");
+
+        assertThat(openApi.at(
+                "/components/securitySchemes/bearerAuth/scheme").asText())
+                .isEqualTo("bearer");
+    }
+
+    @Test
+    void shouldRejectOpenApiDocumentRequestWithoutBearerToken() {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                "http://localhost:" + port + "/v3/api-docs",
+                String.class);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     private UUID createTransfer(String token, String idempotencyPrefix) {
