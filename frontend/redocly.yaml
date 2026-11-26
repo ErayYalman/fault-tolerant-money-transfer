@@ -1,0 +1,26 @@
+apis:
+  transfer@v1:
+    root: http://localhost:8080/v3/api-docs
+    x-openapi-ts:
+      output: ./src/types/generated/transfer-api.ts
+
+  payment-a@v1:
+    root: http://localhost:8081/v3/api-docs
+    x-openapi-ts:
+      output: ./src/types/generated/payment-a-api.ts
+
+  reconciliation@v1:
+    root: http://localhost:8083/v3/api-docs
+    x-openapi-ts:
+      output: ./src/types/generated/reconciliation-api.ts
+
+resolve:
+  http:
+    headers:
+      - matches: http://localhost:8080/v3/api-docs
+        name: Authorization
+        envVariable: OPENAPI_AUTHORIZATION
+
+      - matches: http://localhost:8081/v3/api-docs
+        name: Authorization
+        envVariable: OPENAPI_AUTHORIZATION
