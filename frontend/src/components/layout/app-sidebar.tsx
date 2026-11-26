@@ -6,9 +6,12 @@ import {
   Landmark,
   ShieldCheck,
   WalletCards,
+  type LucideIcon,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router"
 
+import { useAuth } from "@/app/providers/AuthProvider"
+import type { AppRole } from "@/lib/auth/auth.types"
 import {
   Sidebar,
   SidebarContent,
@@ -23,7 +26,19 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-const navigationGroups = [
+interface NavigationItem {
+  title: string
+  url: string
+  icon: LucideIcon
+  allowedRoles?: AppRole[]
+}
+
+interface NavigationGroup {
+  label: string
+  items: NavigationItem[]
+}
+
+const navigationGroups: NavigationGroup[] = [
   {
     label: "ÇALIŞMA ALANI",
     items: [
@@ -36,16 +51,19 @@ const navigationGroups = [
         title: "Hesaplarım",
         url: "/accounts",
         icon: WalletCards,
+        allowedRoles: ["CUSTOMER", "ADMIN"],
       },
       {
         title: "Para Transferi",
         url: "/transfers/new",
         icon: ArrowLeftRight,
+        allowedRoles: ["CUSTOMER", "ADMIN"],
       },
       {
         title: "İşlem Geçmişi",
         url: "/transfers",
         icon: ClipboardList,
+        allowedRoles: ["CUSTOMER", "ADMIN"],
       },
     ],
   },
@@ -56,11 +74,13 @@ const navigationGroups = [
         title: "Mutabakat Merkezi",
         url: "/operations/reconciliation",
         icon: Activity,
+        allowedRoles: ["OPERATIONS", "ADMIN"],
       },
       {
         title: "Anomali İzleme",
         url: "/operations/anomalies",
         icon: ShieldCheck,
+        allowedRoles: ["OPERATIONS", "ADMIN"],
       },
     ],
   },
@@ -76,6 +96,7 @@ function isItemActive(pathname: string, href: string) {
 
 export function AppSidebar() {
   const { pathname } = useLocation()
+  const { hasAnyRole } = useAuth()
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -97,41 +118,52 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="gap-2 px-2 py-4">
-        {navigationGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="px-2 text-[10px] font-semibold tracking-[0.14em] text-sidebar-foreground/45">
-              {group.label}
-            </SidebarGroupLabel>
+        {navigationGroups.map((group) => {
+          const visibleItems = group.items.filter(
+            (item) =>
+              !item.allowedRoles || hasAnyRole(item.allowedRoles),
+          )
 
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const active = isItemActive(pathname, item.url)
-                  const Icon = item.icon
+          if (visibleItems.length === 0) {
+            return null
+          }
 
-                  return (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton
-                        render={
-                          <NavLink
-                            to={item.url}
-                            end={item.url === "/"}
-                          />
-                        }
-                        isActive={active}
-                        tooltip={item.title}
-                        className="h-10 px-3 text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-primary"
-                      >
-                        <Icon className="size-[18px]" />
-                        <span>{item.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+          return (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel className="px-2 text-[10px] font-semibold tracking-[0.14em] text-sidebar-foreground/45">
+                {group.label}
+              </SidebarGroupLabel>
+
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleItems.map((item) => {
+                    const active = isItemActive(pathname, item.url)
+                    const Icon = item.icon
+
+                    return (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton
+                          render={
+                            <NavLink
+                              to={item.url}
+                              end={item.url === "/"}
+                            />
+                          }
+                          isActive={active}
+                          tooltip={item.title}
+                          className="h-10 px-3 text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-primary"
+                        >
+                          <Icon className="size-[18px]" />
+                          <span>{item.title}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        })}
       </SidebarContent>
 
       <SidebarFooter className="p-3">

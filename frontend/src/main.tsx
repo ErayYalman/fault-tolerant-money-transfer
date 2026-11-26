@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { BrowserRouter } from "react-router"
 
 import { AuthInitializationError } from "@/app/AuthInitializationError"
+import { AuthProvider } from "@/app/providers/AuthProvider"
 import App from "@/app/App"
 import { initializeKeycloak } from "@/lib/auth/keycloak"
 import "@/index.css"
@@ -22,7 +23,9 @@ async function bootstrap() {
     root.render(
       <StrictMode>
         <BrowserRouter>
-          <App />
+          <AuthProvider>
+            <App />
+          </AuthProvider>
         </BrowserRouter>
       </StrictMode>,
     )
