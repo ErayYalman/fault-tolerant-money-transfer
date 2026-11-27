@@ -12,6 +12,7 @@ import { FeaturePlaceholderPage } from "@/app/FeaturePlaceholderPage"
 import { NewTransferPage } from "@/features/transfers/pages/new-transfer-page"
 import { TransferHistoryPage } from "@/features/transfers/pages/transfer-history-page"
 import { ReconciliationCenterPage } from "@/features/reconciliation/pages/reconciliation-center-page"
+import { AnomalyMonitoringPage } from "@/features/reconciliation/pages/anomaly-monitoring-page"
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
@@ -62,12 +63,7 @@ export function AppRouter() {
 
           <Route
             path="operations/anomalies"
-            element={
-              <FeaturePlaceholderPage
-                title="Anomali İzleme"
-                description="Kural tabanlı farklılıkları ve makine öğrenmesi anomali skorlarını inceleyin."
-              />
-            }
+            element={<AnomalyMonitoringPage />}
           />
         </Route>
 

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router"
 import {
   Activity,
   AlertCircle,
@@ -515,11 +516,28 @@ function ReconciliationResults({
           </h2>
         </div>
 
-        <span
-          className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${status.className}`}
-        >
-          {status.label}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {run.runId && (
+            <Button
+              size="sm"
+              variant="outline"
+              render={
+                <Link
+                  to={`/operations/anomalies?runId=${encodeURIComponent(run.runId)}`}
+                />
+              }
+            >
+              <ShieldAlert className="size-4" />
+              Anomali sonuçlarını incele
+            </Button>
+          )}
+
+          <span
+            className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${status.className}`}
+          >
+            {status.label}
+          </span>
+        </div>
       </section>
 
       {run.errorMessage && (
