@@ -35,3 +35,4 @@ storage/
 *.temp
 
 AGENTS.md
+seed-demo-accounts.ps1

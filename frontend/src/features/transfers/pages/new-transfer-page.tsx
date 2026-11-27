@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
   AlertCircle,
   ArrowDownLeft,
@@ -18,7 +18,13 @@ import {
 
 import { useAccounts } from "@/features/accounts/hooks/useAccounts"
 import type { AccountSummary } from "@/features/accounts/api/accounts.api"
+import { useCreateTransfer } from "@/features/transfers/hooks/useCreateTransfer"
 import { useRecipientLookup } from "@/features/transfers/hooks/useRecipientLookup"
+import { useTransferStatus } from "@/features/transfers/hooks/useTransferStatus"
+import type {
+  CreateTransferRequest,
+  TransferResponse,
+} from "@/features/transfers/api/transfers.api"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -90,6 +96,88 @@ function getRecipientErrorMessage(error: unknown): string {
   return "Alıcı doğrulanırken beklenmeyen bir hata oluştu."
 }
 
+function isAmbiguousTransferError(error: unknown): boolean {
+  if (
+    error instanceof ApiNetworkError ||
+    error instanceof ApiTimeoutError
+  ) {
+    return true
+  }
+
+  return (
+    error instanceof ApiError &&
+    (error.status === 408 || error.status >= 500)
+  )
+}
+
+function getTransferCreationErrorMessage(error: unknown): string {
+  if (error instanceof ApiAuthenticationError) {
+    return "Oturum doğrulanamadı. Yeniden giriş yapıp tekrar deneyin."
+  }
+
+  if (
+    error instanceof ApiNetworkError ||
+    error instanceof ApiTimeoutError
+  ) {
+    return "Sunucudan kesin yanıt alınamadı. Transfer oluşturulmuş olabilir. Aynı isteği aynı idempotency anahtarıyla tekrar gönderin; yeni bir transfer başlatmayın."
+  }
+
+  if (error instanceof ApiError) {
+    if (error.status === 400) {
+      return "Transfer bilgileri geçersiz. Girdiğiniz alanları kontrol edin."
+    }
+
+    if (error.status === 401 || error.status === 403) {
+      return "Bu transfer işlemi için oturum veya yetki doğrulaması başarısız oldu."
+    }
+
+    if (error.status === 404) {
+      return "Kaynak veya alıcı hesap bulunamadı. Hesap bilgilerini kontrol edin."
+    }
+
+    if (error.status === 409) {
+      return "Idempotency anahtarı çakışması oluştu. Yeni bir istek oluşturmadan önce işlemi kontrol edin."
+    }
+
+    if (error.status === 422) {
+      return "Hesap durumu veya para birimi nedeniyle transfer kabul edilmedi."
+    }
+
+    if (error.status === 429) {
+      return "Çok fazla transfer isteği gönderildi. Bir süre bekleyip tekrar deneyin."
+    }
+
+    if (error.status >= 500) {
+      return "Sunucu hatası nedeniyle isteğin sonucu belirsiz. Aynı isteği aynı anahtarla tekrar gönderin."
+    }
+  }
+
+  return "Transfer gönderilirken beklenmeyen bir hata oluştu."
+}
+
+const TRANSFER_STATUS_LABELS: Record<
+  NonNullable<TransferResponse["status"]>,
+  string
+> = {
+  PENDING: "Beklemede",
+  DEBIT_REQUESTED: "Gönderen bankada borçlandırma bekleniyor",
+  DEBIT_COMPLETED: "Gönderen banka borçlandırmayı tamamladı",
+  DEBIT_FAILED: "Gönderen banka işlemi başarısız",
+  CREDIT_REQUESTED: "Alıcı bankada alacaklandırma bekleniyor",
+  CREDIT_FAILED: "Alıcı banka işlemi başarısız",
+  COMPLETED: "Transfer tamamlandı",
+  COMPENSATING: "Telafi işlemi devam ediyor",
+  COMPENSATED: "Transfer telafi edildi",
+}
+
+function getTransferStatusLabel(
+  status: TransferResponse["status"],
+): string {
+  return status
+    ? TRANSFER_STATUS_LABELS[status]
+    : "Durum bilgisi alınamadı"
+}
+
 function isEligibleSourceAccount(
   account: AccountSummary,
 ): boolean {
@@ -113,10 +201,12 @@ function AccountSelect({
   accounts,
   value,
   onChange,
+  disabled,
 }: {
   accounts: AccountSummary[]
   value: string
   onChange: (value: string) => void
+  disabled: boolean
 }) {
   return (
     <div className="space-y-2">
@@ -131,6 +221,7 @@ function AccountSelect({
         id="source-account"
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
         className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <option value="" disabled>
@@ -244,6 +335,28 @@ export function NewTransferPage() {
   const [verificationRequested, setVerificationRequested] = useState(false)
   const [amount, setAmount] = useState("")
 
+  const createTransferMutation = useCreateTransfer()
+  const submissionInFlight = useRef(false)
+
+  const [createdTransfer, setCreatedTransfer] =
+    useState<TransferResponse | null>(null)
+
+  const transferStatusQuery = useTransferStatus(
+    createdTransfer?.transferId,
+  )
+
+  const displayedTransfer =
+    transferStatusQuery.data ?? createdTransfer
+
+  const [ambiguousRequest, setAmbiguousRequest] =
+    useState<CreateTransferRequest | null>(null)
+
+  const [submissionError, setSubmissionError] =
+    useState<unknown>(null)
+
+  const [isAmbiguousOutcome, setIsAmbiguousOutcome] =
+    useState(false)
+
   const accountsQuery = useAccounts(0, ACCOUNT_PAGE_SIZE)
 
   const accounts = accountsQuery.data?.content ?? []
@@ -309,9 +422,13 @@ const selectedAccountBalance =
     isAmountValid &&
     hasSufficientBalance
 
+  const isFormLocked =
+    isAmbiguousOutcome || createdTransfer !== null
+
   function handleRecipientNumberChange(value: string) {
     setRecipientAccountNumber(value.slice(0, 50))
     setVerificationRequested(false)
+    setSubmissionError(null)
   }
 
   function handleVerifyRecipient() {
@@ -320,6 +437,91 @@ const selectedAccountBalance =
     }
 
     setVerificationRequested(true)
+  }
+
+  async function sendTransferRequest(
+    request: CreateTransferRequest,
+    retryingAmbiguousRequest = false,
+  ) {
+    if (submissionInFlight.current) {
+      return
+    }
+
+    submissionInFlight.current = true
+    setSubmissionError(null)
+
+    try {
+      const response =
+        await createTransferMutation.mutateAsync(request)
+
+      setCreatedTransfer(response)
+      setAmbiguousRequest(null)
+      setIsAmbiguousOutcome(false)
+    } catch (error) {
+      setSubmissionError(error)
+
+      if (
+        retryingAmbiguousRequest ||
+        isAmbiguousTransferError(error)
+      ) {
+        // Belirsiz bir isteğin anahtarı ve gövdesi korunur.
+        setAmbiguousRequest(request)
+        setIsAmbiguousOutcome(true)
+      } else {
+        // Kesin olarak reddedilen isteğin yeniden düzenlenmesine izin ver.
+        setAmbiguousRequest(null)
+        setIsAmbiguousOutcome(false)
+      }
+    } finally {
+      submissionInFlight.current = false
+    }
+  }
+
+  function handleCreateTransfer() {
+    if (
+      !isTransferReady ||
+      !selectedAccount?.accountId ||
+      isFormLocked ||
+      createTransferMutation.isPending
+    ) {
+      return
+    }
+
+    const request: CreateTransferRequest = {
+      amount: parsedAmount,
+      currency: "TRY",
+      fromAccountId: selectedAccount.accountId,
+      toAccountNumber: normalizedRecipientNumber,
+      idempotencyKey: crypto.randomUUID(),
+    }
+
+    void sendTransferRequest(request)
+  }
+
+  function handleRetryAmbiguousTransfer() {
+    if (
+      !ambiguousRequest ||
+      createTransferMutation.isPending
+    ) {
+      return
+    }
+
+    // Yeni UUID oluşturulmuyor. İlk isteğin aynısı gönderiliyor.
+    void sendTransferRequest(ambiguousRequest, true)
+  }
+
+  function handlePrepareAnotherTransfer() {
+    setSourceAccountId("")
+    setRecipientAccountNumber("")
+    setVerificationRequested(false)
+    setAmount("")
+
+    setCreatedTransfer(null)
+    setAmbiguousRequest(null)
+    setSubmissionError(null)
+    setIsAmbiguousOutcome(false)
+
+    createTransferMutation.reset()
   }
 
   return (
@@ -398,7 +600,11 @@ const selectedAccountBalance =
                   <AccountSelect
                     accounts={eligibleAccounts}
                     value={sourceAccountId}
-                    onChange={setSourceAccountId}
+                    onChange={(value) => {
+                      setSourceAccountId(value)
+                      setSubmissionError(null)
+                    }}
+                    disabled={isFormLocked}
                   />
 
                   {selectedAccount && (
@@ -461,6 +667,7 @@ const selectedAccountBalance =
                     placeholder="BANK-B-RECIPIENT-001"
                     maxLength={50}
                     autoComplete="off"
+                    disabled={isFormLocked}
                     aria-invalid={
                       recipientAccountNumber.length > 0 &&
                       !isRecipientInputValid
@@ -471,6 +678,7 @@ const selectedAccountBalance =
                     type="button"
                     onClick={handleVerifyRecipient}
                     disabled={
+                      isFormLocked ||
                       !isRecipientInputValid ||
                       recipientQuery.isFetching
                     }
@@ -562,11 +770,14 @@ const selectedAccountBalance =
                   type="text"
                   inputMode="decimal"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
+                  onChange={(event) => {
+                    setAmount(event.target.value)
+                    setSubmissionError(null)
+                  }}
                   placeholder="0,00"
                   autoComplete="off"
                   aria-invalid={amount.length > 0 && !isAmountValid}
-                  disabled={!selectedAccount}
+                  disabled={!selectedAccount || isFormLocked}
                 />
 
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -679,6 +890,213 @@ const selectedAccountBalance =
               </div>
             </CardContent>
           </Card>
+
+          {submissionError !== null && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+            >
+              {getTransferCreationErrorMessage(submissionError)}
+            </div>
+          )}
+
+          {isAmbiguousOutcome && ambiguousRequest && (
+            <Card className="shadow-none">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Transfer sonucu doğrulanamadı
+                </CardTitle>
+
+                <CardDescription>
+                  Güvenlik nedeniyle yeni transfer başlatılamıyor.
+                  Aynı isteği aynı idempotency anahtarıyla tekrar
+                  göndererek mevcut sonucu öğrenebilirsiniz.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent>
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant="outline"
+                  onClick={handleRetryAmbiguousTransfer}
+                  disabled={createTransferMutation.isPending}
+                >
+                  {createTransferMutation.isPending ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin" />
+                      Tekrar gönderiliyor...
+                    </>
+                  ) : (
+                    "Aynı İsteği Tekrar Gönder"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {createdTransfer && displayedTransfer && (
+            <Card className="shadow-none">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CheckCircle2 className="size-5 text-primary" />
+                  Transfer isteği alındı
+                </CardTitle>
+
+                <CardDescription>
+                  Backend transfer isteğini kabul etti. Aşağıdaki
+                  bilgiler POST yanıtından alınmıştır.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Transfer durumu
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold">
+                    {getTransferStatusLabel(displayedTransfer.status)}
+                  </p>
+
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">
+                    {displayedTransfer.status ?? "Bilinmiyor"}
+                  </p>
+
+                  {transferStatusQuery.isError && (
+                    <div
+                      role="alert"
+                      className="rounded-lg bg-destructive/5 p-3 text-xs text-destructive"
+                    >
+                      Transferin güncel durumu şu anda alınamadı.
+                      Otomatik sorgulama devam edecek.
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => void transferStatusQuery.refetch()}
+                        disabled={transferStatusQuery.isFetching}
+                      >
+                        <RefreshCw className="size-4" />
+                        Durumu Yenile
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Transfer ID
+                  </p>
+
+                  <p className="mt-1 break-all font-mono text-xs">
+                    {displayedTransfer.transferId ?? "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Correlation ID
+                  </p>
+
+                  <p className="mt-1 break-all font-mono text-xs">
+                    {displayedTransfer.correlationId ?? "—"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Tutar
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold tabular-nums">
+                    {formatMoney(displayedTransfer.amount)}
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-muted p-3 text-xs leading-5 text-muted-foreground">
+                  {displayedTransfer.status === "COMPLETED" && (
+                    <p>
+                      Transfer başarıyla tamamlandı. Bank B hesabına para
+                      aktarımı gerçekleştirildi.
+                    </p>
+                  )}
+
+                  {displayedTransfer.status === "DEBIT_FAILED" && (
+                    <p>
+                      Kaynak bankadaki borçlandırma adımı başarısız oldu.
+                      Transfer tamamlanmadı.
+                    </p>
+                  )}
+
+                  {displayedTransfer.status === "COMPENSATING" && (
+                    <p>
+                      Alıcı bankadaki işlem tamamlanamadı. Kaynak bankadaki
+                      borçlandırmanın telafi edilmesi bekleniyor.
+                    </p>
+                  )}
+
+                  {displayedTransfer.status === "COMPENSATED" && (
+                    <p>
+                      Transfer tamamlanamadı. Kaynak bankadaki borçlandırma
+                      telafi edilerek bakiye geri yüklendi.
+                    </p>
+                  )}
+
+                  {displayedTransfer.status !== "COMPLETED" &&
+                    displayedTransfer.status !== "DEBIT_FAILED" &&
+                    displayedTransfer.status !== "COMPENSATING" &&
+                    displayedTransfer.status !== "COMPENSATED" && (
+                      <p>
+                        Saga işlemi devam ediyor. Transfer durumu otomatik
+                        olarak takip ediliyor.
+                      </p>
+                    )}
+
+                  {displayedTransfer.failureReason && (
+                    <p className="mt-2 break-words">
+                      İşlem açıklaması: {displayedTransfer.failureReason}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handlePrepareAnotherTransfer}
+                >
+                  Yeni Transfer Hazırla
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {!isFormLocked && (
+            <Button
+              type="button"
+              className="w-full"
+              disabled={
+                !isTransferReady ||
+                createTransferMutation.isPending
+              }
+              onClick={handleCreateTransfer}
+            >
+              {createTransferMutation.isPending ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Transfer gönderiliyor...
+                </>
+              ) : (
+                <>
+                  <ArrowLeftRight className="size-4" />
+                  Transferi Gönder
+                </>
+              )}
+            </Button>
+          )}
 
           <p className="text-xs leading-5 text-muted-foreground">
             Bu aşamada transfer henüz gönderilmez. Sonraki adımda

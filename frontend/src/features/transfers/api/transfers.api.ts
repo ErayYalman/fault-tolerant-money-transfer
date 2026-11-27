@@ -30,10 +30,13 @@ export type TransferPageResponse =
 export type RecipientLookupResponse =
   FindRecipientOperation["responses"][200]["content"]["*/*"]
 
-export type RecipientLookupRequestOptions = Omit<
+export type TransferRequestOptions = Omit<
   ApiRequestOptions,
   "method" | "body"
 >
+
+export type RecipientLookupRequestOptions =
+  TransferRequestOptions
 
 export type TransferPath =
   GetTransferOperation["parameters"]["path"]
@@ -58,9 +61,11 @@ export function createTransfer(
  */
 export function getTransfer(
   transferId: TransferPath["id"],
+  options: TransferRequestOptions = {},
 ): Promise<TransferResponse> {
   return apiGet<TransferResponse>(
     `/api/v1/transfers/${encodeURIComponent(transferId)}`,
+    options,
   )
 }
 
