@@ -6,6 +6,7 @@ import { RequireRole } from "@/app/router/RequireRole"
 import { AppShell } from "@/components/layout/app-shell"
 import { LoginPage } from "@/features/auth/pages/login-page"
 import { AccountsPage } from "@/features/accounts/pages/accounts-page"
+import { AccountLedgerPage } from "@/features/accounts/pages/account-ledger-page"
 import { OverviewPage } from "@/features/dashboard/pages/overview-page"
 import { FeaturePlaceholderPage } from "@/app/FeaturePlaceholderPage"
 
@@ -31,6 +32,11 @@ export function AppRouter() {
           <Route
             path="accounts"
             element={<AccountsPage />}
+          />
+
+          <Route
+            path="accounts/:accountId/ledger"
+            element={<AccountLedgerPage />}
           />
 
           <Route

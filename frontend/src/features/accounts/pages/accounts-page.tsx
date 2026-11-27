@@ -1,11 +1,13 @@
 import { useState } from "react"
 import {
+  ArrowUpRight,
   ChevronLeft,
   ChevronRight,
   Landmark,
   RefreshCw,
   WalletCards,
 } from "lucide-react"
+import { Link } from "react-router"
 
 import { ApiAuthenticationError, ApiError, ApiNetworkError, ApiTimeoutError } from "@/lib/api/api-error"
 import { useAccounts } from "@/features/accounts/hooks/useAccounts"
@@ -16,6 +18,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -162,6 +165,31 @@ function AccountCard({ account }: { account: AccountSummary }) {
           </span>
         </div>
       </CardContent>
+
+      <CardFooter className="justify-end border-t border-border/70 bg-transparent">
+        {account.accountId ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            render={
+              <Link
+                to={`/accounts/${encodeURIComponent(account.accountId)}/ledger`}
+                state={{
+                  accountNumber: account.accountNumber,
+                  currency: account.currency,
+                }}
+              />
+            }
+          >
+            Hesap hareketleri
+            <ArrowUpRight className="size-4" />
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled>
+            Hesap kimliği bulunamadı
+          </Button>
+        )}
+      </CardFooter>
     </Card>
   )
 }

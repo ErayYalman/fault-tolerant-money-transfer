@@ -30,6 +30,11 @@ export type AccountRequestOptions = Omit<
   "method" | "body"
 >
 
+export type AccountLedgerRequestOptions = Omit<
+  ApiRequestOptions,
+  "method" | "body"
+>
+
 export type LedgerEntry =
   PaymentAComponents["schemas"]["LedgerEntryResponse"]
 
@@ -55,8 +60,10 @@ export function listAccounts(
 export function getAccountLedger(
   accountId: AccountLedgerPath["accountId"],
   query: AccountLedgerQuery = {},
+  options: AccountLedgerRequestOptions = {},
 ): Promise<LedgerEntryPageResponse> {
   return apiGet<LedgerEntryPageResponse>(
     `/api/v1/accounts/${encodeURIComponent(accountId)}/ledger${buildQueryString(query)}`,
+    options,
   )
 }
