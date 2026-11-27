@@ -7,6 +7,7 @@ import {
   getTransfer,
   type TransferResponse,
 } from "@/features/transfers/api/transfers.api"
+import { transferQueryKeys } from "@/features/transfers/hooks/transfer-query-keys"
 
 const TRANSFER_POLL_INTERVAL_MS = 2_000
 
@@ -18,13 +19,6 @@ function isTerminalTransferStatus(
     status === "DEBIT_FAILED" ||
     status === "COMPENSATED"
   )
-}
-
-export const transferQueryKeys = {
-  all: ["transfers"] as const,
-
-  detail: (subject: string, transferId: string) =>
-    ["transfers", "detail", subject, transferId] as const,
 }
 
 export function useTransferStatus(

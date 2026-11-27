@@ -10,6 +10,7 @@ import { AccountLedgerPage } from "@/features/accounts/pages/account-ledger-page
 import { OverviewPage } from "@/features/dashboard/pages/overview-page"
 import { FeaturePlaceholderPage } from "@/app/FeaturePlaceholderPage"
 import { NewTransferPage } from "@/features/transfers/pages/new-transfer-page"
+import { TransferHistoryPage } from "@/features/transfers/pages/transfer-history-page"
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
@@ -47,12 +48,7 @@ export function AppRouter() {
 
           <Route
             path="transfers"
-            element={
-              <FeaturePlaceholderPage
-                title="İşlem Geçmişi"
-                description="Gerçekleşen transferlerinizi ve dağıtık işlem adımlarını inceleyin."
-              />
-            }
+            element={<TransferHistoryPage />}
           />
         </Route>
 

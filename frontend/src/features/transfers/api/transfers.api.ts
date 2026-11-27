@@ -74,9 +74,11 @@ export function getTransfer(
  */
 export function listTransfers(
   query: TransferListQuery = {},
+  options: TransferRequestOptions = {},
 ): Promise<TransferPageResponse> {
   return apiGet<TransferPageResponse>(
     `/api/v1/transfers${buildQueryString(query)}`,
+    options,
   )
 }
 

@@ -5,6 +5,7 @@ import {
   createTransfer,
   type CreateTransferRequest,
 } from "@/features/transfers/api/transfers.api"
+import { transferQueryKeys } from "@/features/transfers/hooks/transfer-query-keys"
 
 export function useCreateTransfer() {
   const queryClient = useQueryClient()
@@ -19,12 +20,17 @@ export function useCreateTransfer() {
     retry: false,
 
     onSuccess: async () => {
-      // Saga Kafka üzerinden asenkron ilerlediği için hemen GET atma;
-      // önbelleği bayat işaretle, ilgili ekran açıldığında güncel bakiye çekilsin.
-      await queryClient.invalidateQueries({
-        queryKey: accountQueryKeys.all,
-        refetchType: "none",
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: accountQueryKeys.all,
+          refetchType: "none",
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey: transferQueryKeys.lists(),
+          refetchType: "none",
+        }),
+      ])
     },
   })
 }

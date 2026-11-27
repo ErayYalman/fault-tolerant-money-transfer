@@ -1098,11 +1098,21 @@ const selectedAccountBalance =
             </Button>
           )}
 
-          <p className="text-xs leading-5 text-muted-foreground">
-            Bu aşamada transfer henüz gönderilmez. Sonraki adımda
-            transfer oluşturma isteğini, idempotency korumasını ve
-            işlem sonucunun takibini ekleyeceğiz.
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Transfer işlemlerinizi ve Saga durumlarını işlem geçmişi
+              sayfasından takip edebilirsiniz.
+            </p>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              render={<Link to="/transfers" />}
+            >
+              İşlem Geçmişini Görüntüle
+            </Button>
+          </div>
         </aside>
       </div>
     </div>

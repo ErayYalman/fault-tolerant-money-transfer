@@ -3,6 +3,7 @@ import type {
   operations as ReconciliationOperations,
 } from "@/types/generated/reconciliation-api"
 
+import type { ApiRequestOptions } from "@/lib/api/http-client"
 import { apiGet, apiPost } from "@/lib/api/http-client"
 
 type RunManualOperation = ReconciliationOperations["runManual"]
@@ -29,15 +30,22 @@ export type AnomalySummary =
 export type ReconciliationRunPath =
   GetRunOperation["parameters"]["path"]
 
+export type ReconciliationRequestOptions = Omit<
+  ApiRequestOptions,
+  "method" | "body"
+>
+
 /**
  * Execute manual reconciliation for a business date.
  */
 export function runManualReconciliation(
   request: ManualReconciliationRequest,
+  options: ReconciliationRequestOptions = {},
 ): Promise<ReconciliationRunDetails> {
   return apiPost<ManualReconciliationRequest, ReconciliationRunDetails>(
     "/api/v1/reconciliation/run",
     request,
+    options,
   )
 }
 
@@ -46,8 +54,10 @@ export function runManualReconciliation(
  */
 export function getReconciliationRun(
   runId: ReconciliationRunPath["id"],
+  options: ReconciliationRequestOptions = {},
 ): Promise<ReconciliationRunDetails> {
   return apiGet<ReconciliationRunDetails>(
     `/api/v1/reconciliation/runs/${encodeURIComponent(runId)}`,
+    options,
   )
 }
