@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 
 import type { AppRole, AuthSnapshot } from "@/lib/auth/auth.types"
 import {
@@ -39,6 +40,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getAuthSnapshot,
   )
 
+  const queryClient = useQueryClient()
+
   const hasRole = useCallback(
     (role: AppRole) => snapshot.roles.includes(role),
     [snapshot.roles],
@@ -58,6 +61,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     (minValidity?: number) => refreshAccessToken(minValidity),
     [],
   )
+
+  useEffect(() => {
+    if (!snapshot.isAuthenticated) {
+      queryClient.clear()
+    }
+  }, [snapshot.isAuthenticated, queryClient])
 
   // Token'ı bitmeden yenilemeyi kontrol et.
   useEffect(() => {

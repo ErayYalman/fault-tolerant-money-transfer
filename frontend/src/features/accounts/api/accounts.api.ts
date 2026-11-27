@@ -3,6 +3,7 @@ import type {
   operations as PaymentAOperations,
 } from "@/types/generated/payment-a-api"
 
+import type { ApiRequestOptions } from "@/lib/api/http-client"
 import { apiGet } from "@/lib/api/http-client"
 import { buildQueryString } from "@/lib/api/query-params"
 
@@ -24,6 +25,11 @@ export type AccountSummary =
 export type AccountPageResponse =
   AccountListOperation["responses"][200]["content"]["*/*"]
 
+export type AccountRequestOptions = Omit<
+  ApiRequestOptions,
+  "method" | "body"
+>
+
 export type LedgerEntry =
   PaymentAComponents["schemas"]["LedgerEntryResponse"]
 
@@ -35,9 +41,11 @@ export type LedgerEntryPageResponse =
  */
 export function listAccounts(
   query: AccountListQuery = {},
+  options: AccountRequestOptions = {},
 ): Promise<AccountPageResponse> {
   return apiGet<AccountPageResponse>(
     `/api/v1/accounts${buildQueryString(query)}`,
+    options,
   )
 }
 
