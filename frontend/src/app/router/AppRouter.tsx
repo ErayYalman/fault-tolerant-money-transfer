@@ -11,6 +11,7 @@ import { OverviewPage } from "@/features/dashboard/pages/overview-page"
 import { FeaturePlaceholderPage } from "@/app/FeaturePlaceholderPage"
 import { NewTransferPage } from "@/features/transfers/pages/new-transfer-page"
 import { TransferHistoryPage } from "@/features/transfers/pages/transfer-history-page"
+import { ReconciliationCenterPage } from "@/features/reconciliation/pages/reconciliation-center-page"
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
@@ -56,12 +57,7 @@ export function AppRouter() {
         <Route element={<RequireRole allowedRoles={["OPERATIONS", "ADMIN"]} />}>
           <Route
             path="operations/reconciliation"
-            element={
-              <FeaturePlaceholderPage
-                title="Mutabakat Merkezi"
-                description="T+1 mutabakat koşularını, mutabakat sonuçlarını ve fark kayıtlarını takip edin."
-              />
-            }
+            element={<ReconciliationCenterPage />}
           />
 
           <Route
