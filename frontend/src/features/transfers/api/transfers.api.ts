@@ -4,6 +4,7 @@ import type {
 } from "@/types/generated/transfer-api"
 
 import { apiGet, apiPost } from "@/lib/api/http-client"
+import type { ApiRequestOptions } from "@/lib/api/http-client"
 import { buildQueryString } from "@/lib/api/query-params"
 
 type TransferListOperation = TransferOperations["listTransfers"]
@@ -28,6 +29,11 @@ export type TransferPageResponse =
 
 export type RecipientLookupResponse =
   FindRecipientOperation["responses"][200]["content"]["*/*"]
+
+export type RecipientLookupRequestOptions = Omit<
+  ApiRequestOptions,
+  "method" | "body"
+>
 
 export type TransferPath =
   GetTransferOperation["parameters"]["path"]
@@ -74,8 +80,12 @@ export function listTransfers(
  */
 export function verifyRecipient(
   accountNumber: string,
+  options: RecipientLookupRequestOptions = {},
 ): Promise<RecipientLookupResponse> {
+  const normalizedAccountNumber = accountNumber.trim()
+
   return apiGet<RecipientLookupResponse>(
-    `/api/v1/recipients/${encodeURIComponent(accountNumber)}`,
+    `/api/v1/recipients/${encodeURIComponent(normalizedAccountNumber)}`,
+    options,
   )
 }

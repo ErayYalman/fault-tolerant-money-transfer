@@ -9,6 +9,7 @@ import { AccountsPage } from "@/features/accounts/pages/accounts-page"
 import { AccountLedgerPage } from "@/features/accounts/pages/account-ledger-page"
 import { OverviewPage } from "@/features/dashboard/pages/overview-page"
 import { FeaturePlaceholderPage } from "@/app/FeaturePlaceholderPage"
+import { NewTransferPage } from "@/features/transfers/pages/new-transfer-page"
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
@@ -41,12 +42,7 @@ export function AppRouter() {
 
           <Route
             path="transfers/new"
-            element={
-              <FeaturePlaceholderPage
-                title="Para Transferi"
-                description="Alıcı doğrulama, para transferi oluşturma ve transfer durumunu takip etme."
-              />
-            }
+            element={<NewTransferPage />}
           />
 
           <Route
