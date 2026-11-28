@@ -139,6 +139,7 @@ services:
 
     volumes:
       - ./infra/keycloak/themes:/opt/keycloak/themes:ro
+      - ./infra/keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
 
     healthcheck:
       test:
