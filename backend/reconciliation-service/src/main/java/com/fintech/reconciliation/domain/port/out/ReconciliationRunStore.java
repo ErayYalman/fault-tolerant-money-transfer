@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationAnalysisResult;
+import com.fintech.reconciliation.domain.model.ReconciliationAnomalyPage;
 import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancyRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationPeriod;
 import com.fintech.reconciliation.domain.model.ReconciliationRunPage;
@@ -45,4 +46,11 @@ public interface ReconciliationRunStore {
     List<ReconciliationRunRecord> findLatestCompletedRuns(
             LocalDate fromDate,
             LocalDate toDate);
+
+    ReconciliationAnomalyPage findAnomalyScoresForLatestCompletedRuns(
+            LocalDate fromDate,
+            LocalDate toDate,
+            Boolean isAnomaly,
+            int page,
+            int size);
 }

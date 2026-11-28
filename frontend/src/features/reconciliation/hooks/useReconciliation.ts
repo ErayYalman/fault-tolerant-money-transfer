@@ -4,10 +4,18 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 
+import { useAuth } from "@/app/providers/AuthProvider"
+
 import {
+  getReconciliationDailySummary,
   getReconciliationRun,
+  listReconciliationAnomalies,
+  listReconciliationRuns,
   runManualReconciliation,
   type ManualReconciliationRequest,
+  type ReconciliationAnomaliesQuery,
+  type ReconciliationDailySummaryQuery,
+  type ReconciliationRunsQuery,
 } from "@/features/reconciliation/api/reconciliation.api"
 
 export const reconciliationQueryKeys = {
@@ -15,6 +23,23 @@ export const reconciliationQueryKeys = {
 
   run: (runId: string) =>
     ["reconciliation", "run", runId] as const,
+
+  runs: (userId: string, query: ReconciliationRunsQuery) =>
+    ["reconciliation", "runs", userId, query] as const,
+
+  reports: ["reconciliation", "reports"] as const,
+
+  dailySummary: (
+    userId: string,
+    query: ReconciliationDailySummaryQuery,
+  ) =>
+    ["reconciliation", "reports", "summary", userId, query] as const,
+
+  anomalies: (
+    userId: string,
+    query: ReconciliationAnomaliesQuery,
+  ) =>
+    ["reconciliation", "reports", "anomalies", userId, query] as const,
 }
 
 /**
@@ -41,6 +66,14 @@ export function useRunManualReconciliation() {
           run,
         )
       }
+
+      void queryClient.invalidateQueries({
+        queryKey: ["reconciliation", "runs"],
+      })
+
+      void queryClient.invalidateQueries({
+        queryKey: reconciliationQueryKeys.reports,
+      })
     },
   })
 }
@@ -63,6 +96,84 @@ export function useReconciliationRun(
     },
 
     enabled: Boolean(runId),
+
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * Retrieves paginated reconciliation run history.
+ */
+export function useReconciliationRuns(
+  query: ReconciliationRunsQuery,
+) {
+  const { user, isAuthenticated } = useAuth()
+
+  return useQuery({
+    queryKey: reconciliationQueryKeys.runs(
+      user?.id ?? "anonymous",
+      query,
+    ),
+
+    queryFn: ({ signal }) =>
+      listReconciliationRuns(query, { signal }),
+
+    enabled:
+      isAuthenticated &&
+      Boolean(user?.id) &&
+      Boolean(query.fromDate && query.toDate),
+
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * Retrieves daily reconciliation metrics.
+ */
+export function useReconciliationDailySummary(
+  query: ReconciliationDailySummaryQuery,
+) {
+  const { user, isAuthenticated } = useAuth()
+
+  return useQuery({
+    queryKey: reconciliationQueryKeys.dailySummary(
+      user?.id ?? "anonymous",
+      query,
+    ),
+
+    queryFn: ({ signal }) =>
+      getReconciliationDailySummary(query, { signal }),
+
+    enabled:
+      isAuthenticated &&
+      Boolean(user?.id) &&
+      Boolean(query.fromDate && query.toDate),
+
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * Retrieves paginated anomaly scores.
+ */
+export function useReconciliationAnomalies(
+  query: ReconciliationAnomaliesQuery,
+) {
+  const { user, isAuthenticated } = useAuth()
+
+  return useQuery({
+    queryKey: reconciliationQueryKeys.anomalies(
+      user?.id ?? "anonymous",
+      query,
+    ),
+
+    queryFn: ({ signal }) =>
+      listReconciliationAnomalies(query, { signal }),
+
+    enabled:
+      isAuthenticated &&
+      Boolean(user?.id) &&
+      Boolean(query.fromDate && query.toDate),
 
     staleTime: 30_000,
   })

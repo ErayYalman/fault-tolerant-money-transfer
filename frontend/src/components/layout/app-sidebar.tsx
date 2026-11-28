@@ -78,6 +78,12 @@ const navigationGroups: NavigationGroup[] = [
         allowedRoles: ["OPERATIONS", "ADMIN"],
       },
       {
+        title: "Mutabakat Raporları",
+        url: "/operations/reports",
+        icon: ClipboardList,
+        allowedRoles: ["OPERATIONS", "ADMIN"],
+      },
+      {
         title: "Anomali İzleme",
         url: "/operations/anomalies",
         icon: ShieldCheck,

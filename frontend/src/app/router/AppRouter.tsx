@@ -13,6 +13,7 @@ import { NewTransferPage } from "@/features/transfers/pages/new-transfer-page"
 import { TransferHistoryPage } from "@/features/transfers/pages/transfer-history-page"
 import { ReconciliationCenterPage } from "@/features/reconciliation/pages/reconciliation-center-page"
 import { AnomalyMonitoringPage } from "@/features/reconciliation/pages/anomaly-monitoring-page"
+import { ReconciliationReportsPage } from "@/features/reconciliation/pages/reconciliation-reports-page"
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
@@ -59,6 +60,11 @@ export function AppRouter() {
           <Route
             path="operations/reconciliation"
             element={<ReconciliationCenterPage />}
+          />
+
+          <Route
+            path="operations/reports"
+            element={<ReconciliationReportsPage />}
           />
 
           <Route

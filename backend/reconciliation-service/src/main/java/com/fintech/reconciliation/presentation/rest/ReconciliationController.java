@@ -20,6 +20,7 @@ import com.fintech.reconciliation.application.service.ReconciliationRunNotFoundE
 import com.fintech.reconciliation.application.service.ReconciliationRunQueryService;
 import com.fintech.reconciliation.application.service.ReconciliationRunService;
 import com.fintech.reconciliation.presentation.dto.ManualReconciliationRequest;
+import com.fintech.reconciliation.presentation.dto.ReconciliationAnomaliesPageResponse;
 import com.fintech.reconciliation.presentation.dto.ReconciliationDailySummaryResponse;
 import com.fintech.reconciliation.presentation.dto.ReconciliationExecutionError;
 import com.fintech.reconciliation.presentation.dto.ReconciliationRunDetailsResponse;
@@ -124,7 +125,13 @@ public class ReconciliationController {
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    description = "Reconciliation runs retrieved"
+                    description = "Reconciliation runs retrieved",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    implementation = ReconciliationRunsPageResponse.class
+                            )
+                    )
             ),
             @ApiResponse(
                     responseCode = "400",
@@ -219,6 +226,79 @@ public class ReconciliationController {
         try {
             return ResponseEntity.ok(
                     queryService.getDailySummary(fromDate, toDate));
+
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("message", exception.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "List reconciliation anomaly scores",
+            description = """
+                    Returns paginated anomaly scores within an inclusive
+                    business-date range. Only scores belonging to the latest
+                    COMPLETED reconciliation run for each business date are
+                    included. The optional isAnomaly parameter filters records.
+                    Anomaly scores are model scores, not calibrated probabilities.
+                    This endpoint returns only successfully persisted scores;
+                    use the daily summary endpoint to inspect scoring coverage.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Anomaly scores retrieved",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    implementation = ReconciliationAnomaliesPageResponse.class
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid date range or pagination parameters"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Authentication required"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "OPERATIONS or ADMIN role required"
+            )
+    })
+    @GetMapping("/reports/anomalies")
+    public ResponseEntity<?> listAnomalies(
+            @RequestParam(name = "fromDate")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate fromDate,
+
+            @RequestParam(name = "toDate")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate toDate,
+
+            @RequestParam(name = "page", defaultValue = "0")
+            int page,
+
+            @RequestParam(name = "size", defaultValue = "20")
+            int size,
+
+            @RequestParam(name = "isAnomaly", required = false)
+            Boolean isAnomaly) {
+
+        try {
+            ReconciliationAnomaliesPageResponse response =
+                    queryService.listAnomalies(
+                            fromDate,
+                            toDate,
+                            isAnomaly,
+                            page,
+                            size);
+
+            return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException exception) {
             return ResponseEntity

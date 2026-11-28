@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowUpRight,
+  ClipboardList,
   ServerCog,
   ShieldAlert,
   Users,
@@ -131,7 +132,7 @@ export function AdminOverviewPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-3">
           <AdminModuleCard
             title="Mutabakat Merkezi"
             description="Transfer kayıtlarını ve banka ledger hareketlerini karşılaştırın. Mutabakat çalışmaları oluşturun ve sonuçlarını inceleyin."
@@ -146,6 +147,14 @@ export function AdminOverviewPage() {
             icon={ShieldAlert}
             href="/operations/anomalies"
             actionLabel="Anomali İzlemeyi Aç"
+          />
+
+          <AdminModuleCard
+            title="Mutabakat Raporları"
+            description="Günlük mutabakat metriklerini, tarih bazlı performansı ve geçmiş çalışma kayıtlarını inceleyin."
+            icon={ClipboardList}
+            href="/operations/reports"
+            actionLabel="Raporları Görüntüle"
           />
         </div>
       </section>

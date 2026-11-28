@@ -24,3 +24,6 @@ resolve:
       - matches: http://localhost:8081/v3/api-docs
         name: Authorization
         envVariable: OPENAPI_AUTHORIZATION
+      - matches: http://localhost:8083/v3/api-docs
+        name: Authorization
+        envVariable: OPENAPI_AUTHORIZATION

@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationAnalysisResult;
+import com.fintech.reconciliation.domain.model.ReconciliationAnomalyPage;
+import com.fintech.reconciliation.domain.model.ReconciliationAnomalyRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancyRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationPeriod;
 import com.fintech.reconciliation.domain.model.ReconciliationRunPage;
@@ -22,6 +24,7 @@ import com.fintech.reconciliation.infrastructure.persistence.entity.AnomalyScore
 import com.fintech.reconciliation.infrastructure.persistence.entity.ReconciliationDiscrepancyEntity;
 import com.fintech.reconciliation.infrastructure.persistence.entity.ReconciliationRunEntity;
 import com.fintech.reconciliation.infrastructure.persistence.repository.AnomalyScoreRepository;
+import com.fintech.reconciliation.infrastructure.persistence.repository.ReconciliationAnomalyProjection;
 import com.fintech.reconciliation.infrastructure.persistence.repository.ReconciliationDiscrepancyRepository;
 import com.fintech.reconciliation.infrastructure.persistence.repository.ReconciliationRunRepository;
 
@@ -218,6 +221,44 @@ public class ReconciliationRunPersistenceAdapter
                                                 .stream()
                                                 .map(ReconciliationRunPersistenceAdapter::toRecord)
                                                 .toList(),
+                                result.getNumber(),
+                                result.getSize(),
+                                result.getTotalElements(),
+                                result.getTotalPages());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ReconciliationAnomalyPage findAnomalyScoresForLatestCompletedRuns(
+                        LocalDate fromDate,
+                        LocalDate toDate,
+                        Boolean isAnomaly,
+                        int page,
+                        int size) {
+
+                Page<ReconciliationAnomalyProjection> result =
+                                anomalyScoreRepository.findLatestCompletedRunScores(
+                                                fromDate,
+                                                toDate,
+                                                isAnomaly,
+                                                PageRequest.of(page, size));
+
+                List<ReconciliationAnomalyRecord> records = result.getContent()
+                                .stream()
+                                .map(projection -> new ReconciliationAnomalyRecord(
+                                                projection.getRunId(),
+                                                projection.getBusinessDate(),
+                                                new AnomalyScoreRecord(
+                                                                projection.getTransferId(),
+                                                                projection.getCorrelationId(),
+                                                                projection.getAnomalyScore(),
+                                                                projection.getModelVersion(),
+                                                                projection.getAnomaly(),
+                                                                projection.getScoredAt())))
+                                .toList();
+
+                return new ReconciliationAnomalyPage(
+                                records,
                                 result.getNumber(),
                                 result.getSize(),
                                 result.getTotalElements(),

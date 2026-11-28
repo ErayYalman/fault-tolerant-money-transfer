@@ -26,6 +26,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reconciliation/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List reconciliation runs
+         * @description Lists all reconciliation runs within an inclusive
+         *     business-date range, including repeated manual runs
+         *     and failed runs. Results are ordered by business date,
+         *     start time and run ID in descending order.
+         */
+        get: operations["listRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reconciliation/runs/{id}": {
         parameters: {
             query?: never;
@@ -40,6 +63,56 @@ export interface paths {
          *     and the anomaly scoring summary.
          */
         get: operations["getRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reconciliation/reports/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get daily reconciliation summary
+         * @description Returns daily reconciliation metrics for the requested
+         *     business date range. Only the latest COMPLETED run
+         *     for each business date is included. Days without a
+         *     completed run are omitted. Anomaly scoring status and
+         *     failure counts are included to indicate incomplete scoring.
+         */
+        get: operations["getDailySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reconciliation/reports/anomalies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List reconciliation anomaly scores
+         * @description Returns paginated anomaly scores within an inclusive
+         *     business-date range. Only scores belonging to the latest
+         *     COMPLETED reconciliation run for each business date are
+         *     included. The optional isAnomaly parameter filters records.
+         *     Anomaly scores are model scores, not calibrated probabilities.
+         *     This endpoint returns only successfully persisted scores;
+         *     use the daily summary endpoint to inspect scoring coverage.
+         */
+        get: operations["listAnomalies"];
         put?: never;
         post?: never;
         delete?: never;
@@ -126,6 +199,116 @@ export interface components {
             runId?: string;
             message?: string;
         };
+        ReconciliationRunSummaryResponse: {
+            /** Format: uuid */
+            runId?: string;
+            /** Format: date */
+            businessDate?: string;
+            /** Format: date-time */
+            periodStart?: string;
+            /** Format: date-time */
+            periodEnd?: string;
+            runType?: string;
+            status?: string;
+            /** Format: int32 */
+            transfersChecked?: number;
+            /** Format: int32 */
+            discrepanciesFound?: number;
+            /** Format: int32 */
+            anomaliesFound?: number;
+            /** @enum {string} */
+            anomalyScoringStatus?: "NOT_RUN" | "NOT_REQUIRED" | "COMPLETED" | "PARTIAL" | "UNAVAILABLE";
+            /** Format: int32 */
+            anomalyScoringAttemptedCount?: number;
+            /** Format: int32 */
+            anomalyScoringFailedCount?: number;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        ReconciliationRunsPageResponse: {
+            content?: components["schemas"]["ReconciliationRunSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        ReconciliationDailySummaryItemResponse: {
+            /** Format: uuid */
+            runId?: string;
+            /** Format: date */
+            businessDate?: string;
+            /** Format: int32 */
+            transfersChecked?: number;
+            /** Format: int32 */
+            discrepanciesFound?: number;
+            /** Format: int32 */
+            anomaliesFound?: number;
+            /** @enum {string} */
+            anomalyScoringStatus?: "NOT_RUN" | "NOT_REQUIRED" | "COMPLETED" | "PARTIAL" | "UNAVAILABLE";
+            /** Format: int32 */
+            anomalyScoringAttemptedCount?: number;
+            /** Format: int32 */
+            anomalyScoringFailedCount?: number;
+        };
+        ReconciliationDailySummaryResponse: {
+            /** Format: date */
+            fromDate?: string;
+            /** Format: date */
+            toDate?: string;
+            /** Format: int32 */
+            completedDays?: number;
+            /** Format: int64 */
+            transfersChecked?: number;
+            /** Format: int64 */
+            discrepanciesFound?: number;
+            /** Format: int64 */
+            anomaliesFound?: number;
+            /** Format: int64 */
+            anomalyScoringAttemptedCount?: number;
+            /** Format: int64 */
+            anomalyScoringFailedCount?: number;
+            /** Format: int32 */
+            incompleteAnomalyScoringDays?: number;
+            daily?: components["schemas"]["ReconciliationDailySummaryItemResponse"][];
+        };
+        ReconciliationAnomaliesPageResponse: {
+            /** Format: date */
+            fromDate?: string;
+            /** Format: date */
+            toDate?: string;
+            isAnomaly?: boolean;
+            content?: components["schemas"]["ReconciliationAnomalyResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        ReconciliationAnomalyResponse: {
+            /** Format: uuid */
+            runId?: string;
+            /** Format: date */
+            businessDate?: string;
+            /** Format: uuid */
+            transferId?: string;
+            /** Format: uuid */
+            correlationId?: string;
+            /** Format: double */
+            anomalyScore?: number;
+            modelVersion?: string;
+            isAnomaly?: boolean;
+            /** Format: date-time */
+            scoredAt?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -195,6 +378,58 @@ export interface operations {
             };
         };
     };
+    listRuns: {
+        parameters: {
+            query: {
+                fromDate: string;
+                toDate: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reconciliation runs retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationRunsPageResponse"];
+                };
+            };
+            /** @description Invalid date range or pagination parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+        };
+    };
     getRun: {
         parameters: {
             query?: never;
@@ -235,6 +470,109 @@ export interface operations {
             };
             /** @description Reconciliation run not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+        };
+    };
+    getDailySummary: {
+        parameters: {
+            query: {
+                fromDate: string;
+                toDate: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Daily reconciliation summary returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationDailySummaryResponse"];
+                };
+            };
+            /** @description Invalid date range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+        };
+    };
+    listAnomalies: {
+        parameters: {
+            query: {
+                fromDate: string;
+                toDate: string;
+                page?: number;
+                size?: number;
+                isAnomaly?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Anomaly scores retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationAnomaliesPageResponse"];
+                };
+            };
+            /** @description Invalid date range or pagination parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": Record<string, never>;
+                };
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

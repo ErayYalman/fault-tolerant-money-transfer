@@ -8,11 +8,13 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
+import com.fintech.reconciliation.domain.model.ReconciliationAnomalyPage;
 import com.fintech.reconciliation.domain.model.ReconciliationRunPage;
 import com.fintech.reconciliation.domain.model.ReconciliationRunRecord;
 import com.fintech.reconciliation.domain.port.out.ReconciliationRunStore;
 import com.fintech.reconciliation.presentation.dto.AnomalyScoreResponse;
 import com.fintech.reconciliation.presentation.dto.AnomalySummaryResponse;
+import com.fintech.reconciliation.presentation.dto.ReconciliationAnomaliesPageResponse;
 import com.fintech.reconciliation.presentation.dto.ReconciliationDailySummaryResponse;
 import com.fintech.reconciliation.presentation.dto.ReconciliationDiscrepancyResponse;
 import com.fintech.reconciliation.presentation.dto.ReconciliationRunDetailsResponse;
@@ -70,6 +72,40 @@ public class ReconciliationRunQueryService {
                 fromDate,
                 toDate,
                 runs);
+    }
+
+    public ReconciliationAnomaliesPageResponse listAnomalies(
+            LocalDate fromDate,
+            LocalDate toDate,
+            Boolean isAnomaly,
+            int page,
+            int size) {
+
+        validateDateRange(fromDate, toDate);
+
+        if (page < 0) {
+            throw new IllegalArgumentException(
+                    "page must be greater than or equal to zero.");
+        }
+
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException(
+                    "size must be between 1 and 100.");
+        }
+
+        ReconciliationAnomalyPage result =
+                runStore.findAnomalyScoresForLatestCompletedRuns(
+                        fromDate,
+                        toDate,
+                        isAnomaly,
+                        page,
+                        size);
+
+        return ReconciliationAnomaliesPageResponse.from(
+                fromDate,
+                toDate,
+                isAnomaly,
+                result);
     }
 
     private void validateDateRange(

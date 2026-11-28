@@ -230,9 +230,18 @@ class ReconciliationRunApiIntegrationTest {
                                 .has("/api/v1/reconciliation/reports/summary"))
                                 .isTrue();
 
+                assertThat(openApi.path("paths")
+                                .has("/api/v1/reconciliation/reports/anomalies"))
+                                .isTrue();
+
                 assertThat(openApi.at(
                                 "/components/schemas/ReconciliationRunDetailsResponse/properties")
                                 .has("anomalyScores"))
+                                .isTrue();
+
+                assertThat(openApi.at(
+                                "/components/schemas/ReconciliationRunsPageResponse/properties")
+                                .has("content"))
                                 .isTrue();
 
                 assertThat(openApi.at(
@@ -590,6 +599,267 @@ class ReconciliationRunApiIntegrationTest {
                                 .isEqualTo(HttpStatus.FORBIDDEN);
         }
 
+        @Test
+        void shouldListScoresOnlyFromLatestCompletedRunPerBusinessDate()
+                        throws Exception {
+
+                UUID oldTransferId = UUID.randomUUID();
+                UUID latestAnomalyTransferId = UUID.randomUUID();
+                UUID latestNormalTransferId = UUID.randomUUID();
+                UUID previousDateTransferId = UUID.randomUUID();
+
+                AnomalyScoreRecord oldScore = new AnomalyScoreRecord(
+                                oldTransferId,
+                                UUID.randomUUID(),
+                                0.99,
+                                "iforest-test-v1",
+                                true,
+                                Instant.parse("2026-10-20T04:00:00Z"));
+
+                AnomalyScoreRecord latestAnomalyScore = new AnomalyScoreRecord(
+                                latestAnomalyTransferId,
+                                UUID.randomUUID(),
+                                0.88,
+                                "iforest-test-v1",
+                                true,
+                                Instant.parse("2026-10-20T03:00:00Z"));
+
+                AnomalyScoreRecord latestNormalScore = new AnomalyScoreRecord(
+                                latestNormalTransferId,
+                                UUID.randomUUID(),
+                                0.10,
+                                "iforest-test-v1",
+                                false,
+                                Instant.parse("2026-10-20T02:00:00Z"));
+
+                AnomalyScoreRecord previousDateScore = new AnomalyScoreRecord(
+                                previousDateTransferId,
+                                UUID.randomUUID(),
+                                0.91,
+                                "iforest-test-v1",
+                                true,
+                                Instant.parse("2026-10-19T03:00:00Z"));
+
+                when(analysisService.analyze(
+                                any(Instant.class),
+                                any(Instant.class)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                1,
+                                                List.of(),
+                                                List.of(oldScore)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                2,
+                                                List.of(),
+                                                List.of(latestAnomalyScore, latestNormalScore)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                1,
+                                                List.of(),
+                                                List.of(previousDateScore)));
+
+                // İlk başarılı çalıştırma.
+                ResponseEntity<String> firstRunResponse = postRun("2026-10-20");
+
+                assertThat(firstRunResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                UUID firstRunId = UUID.fromString(
+                                objectMapper.readTree(firstRunResponse.getBody())
+                                                .path("runId").asText());
+
+                // İlk çalıştırmayı kesin olarak daha eski yap.
+                jdbcTemplate.update(
+                                """
+                                UPDATE reconciliation_runs
+                                SET started_at = TIMESTAMPTZ '2026-10-20 00:00:00+00'
+                                WHERE id = ?
+                                """,
+                                firstRunId);
+
+                // Aynı günün ikinci, daha yeni başarılı çalıştırması.
+                ResponseEntity<String> secondRunResponse = postRun("2026-10-20");
+
+                assertThat(secondRunResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                UUID secondRunId = UUID.fromString(
+                                objectMapper.readTree(secondRunResponse.getBody())
+                                                .path("runId").asText());
+
+                // Önceki günün başarılı çalıştırması.
+                ResponseEntity<String> previousDateResponse = postRun("2026-10-19");
+
+                assertThat(previousDateResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                UUID previousDateRunId = UUID.fromString(
+                                objectMapper.readTree(previousDateResponse.getBody())
+                                                .path("runId").asText());
+
+                // Yalnızca anomalileri getir ve sayfalandır.
+                ResponseEntity<String> firstPageResponse = getAnomalies(
+                                "2026-10-19",
+                                "2026-10-20",
+                                0,
+                                1,
+                                true,
+                                "operations-test-token");
+
+                assertThat(firstPageResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode firstPage = objectMapper.readTree(
+                                firstPageResponse.getBody());
+
+                assertThat(firstPage.path("isAnomaly").asBoolean()).isTrue();
+                assertThat(firstPage.path("totalElements").asLong()).isEqualTo(2);
+                assertThat(firstPage.path("totalPages").asInt()).isEqualTo(2);
+                assertThat(firstPage.path("content")).hasSize(1);
+
+                JsonNode firstContent = firstPage.path("content").get(0);
+
+                assertThat(firstContent.path("runId").asText())
+                                .isEqualTo(secondRunId.toString());
+
+                assertThat(firstContent.path("businessDate").asText())
+                                .isEqualTo("2026-10-20");
+
+                assertThat(firstContent.path("transferId").asText())
+                                .isEqualTo(latestAnomalyTransferId.toString());
+
+                assertThat(firstContent.path("anomalyScore").asDouble())
+                                .isEqualTo(0.88);
+
+                assertThat(firstContent.path("isAnomaly").asBoolean()).isTrue();
+
+                // İkinci sayfa önceki iş gününün anomalisi olmalı.
+                ResponseEntity<String> secondPageResponse = getAnomalies(
+                                "2026-10-19",
+                                "2026-10-20",
+                                1,
+                                1,
+                                true,
+                                "operations-test-token");
+
+                assertThat(secondPageResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode secondPage = objectMapper.readTree(
+                                secondPageResponse.getBody());
+
+                assertThat(secondPage.path("content")).hasSize(1);
+
+                assertThat(secondPage.at("/content/0/runId").asText())
+                                .isEqualTo(previousDateRunId.toString());
+
+                assertThat(secondPage.at("/content/0/businessDate").asText())
+                                .isEqualTo("2026-10-19");
+
+                // Normal kayıt filtresi.
+                ResponseEntity<String> normalResponse = getAnomalies(
+                                "2026-10-19",
+                                "2026-10-20",
+                                0,
+                                20,
+                                false,
+                                "operations-test-token");
+
+                assertThat(normalResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode normalPage = objectMapper.readTree(normalResponse.getBody());
+
+                assertThat(normalPage.path("isAnomaly").asBoolean()).isFalse();
+                assertThat(normalPage.path("totalElements").asLong()).isEqualTo(1);
+                assertThat(normalPage.at("/content/0/runId").asText())
+                                .isEqualTo(secondRunId.toString());
+
+                assertThat(normalPage.at("/content/0/transferId").asText())
+                                .isEqualTo(latestNormalTransferId.toString());
+
+                // Filtre olmadan tüm kayıtlar: eski çalıştırmanın skoru bulunmamalı.
+                ResponseEntity<String> allResponse = getAnomalies(
+                                "2026-10-19",
+                                "2026-10-20",
+                                0,
+                                20,
+                                null,
+                                "operations-test-token");
+
+                assertThat(allResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode allScores = objectMapper.readTree(allResponse.getBody());
+
+                assertThat(allScores.path("totalElements").asLong()).isEqualTo(3);
+
+                assertThat(allScores.path("content").findValuesAsText("runId"))
+                                .contains(secondRunId.toString(), previousDateRunId.toString())
+                                .doesNotContain(firstRunId.toString());
+
+                assertThat(allScores.path("content").findValuesAsText("transferId"))
+                                .doesNotContain(oldTransferId.toString());
+        }
+
+        @Test
+        void shouldRejectAnomalyReportWithInvalidDateRange() {
+
+                ResponseEntity<String> response = getAnomalies(
+                                "2026-10-20",
+                                "2026-10-19",
+                                0,
+                                20,
+                                null,
+                                "operations-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void shouldRejectAnomalyReportWithInvalidPagination() {
+
+                ResponseEntity<String> response = getAnomalies(
+                                "2026-10-01",
+                                "2026-10-31",
+                                0,
+                                101,
+                                null,
+                                "operations-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void shouldRejectAnomalyReportWithoutBearerToken() {
+
+                ResponseEntity<String> response = getAnomalies(
+                                "2026-10-01",
+                                "2026-10-31",
+                                0,
+                                20,
+                                null,
+                                null);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void shouldRejectCustomerFromAnomalyReport() {
+
+                ResponseEntity<String> response = getAnomalies(
+                                "2026-10-01",
+                                "2026-10-31",
+                                0,
+                                20,
+                                null,
+                                "customer-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
         private ResponseEntity<String> postRun(String businessDate) {
                 return postRun(businessDate, "operations-test-token");
         }
@@ -659,6 +929,38 @@ class ReconciliationRunApiIntegrationTest {
                                 + "/api/v1/reconciliation/reports/summary"
                                 + "?fromDate=" + fromDate
                                 + "&toDate=" + toDate;
+
+                return restTemplate.exchange(
+                                url,
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                String.class);
+        }
+
+        private ResponseEntity<String> getAnomalies(
+                        String fromDate,
+                        String toDate,
+                        int page,
+                        int size,
+                        Boolean isAnomaly,
+                        String token) {
+
+                HttpHeaders headers = new HttpHeaders();
+
+                if (token != null) {
+                        headers.setBearerAuth(token);
+                }
+
+                String url = baseUrl()
+                                + "/api/v1/reconciliation/reports/anomalies"
+                                + "?fromDate=" + fromDate
+                                + "&toDate=" + toDate
+                                + "&page=" + page
+                                + "&size=" + size;
+
+                if (isAnomaly != null) {
+                        url += "&isAnomaly=" + isAnomaly;
+                }
 
                 return restTemplate.exchange(
                                 url,
