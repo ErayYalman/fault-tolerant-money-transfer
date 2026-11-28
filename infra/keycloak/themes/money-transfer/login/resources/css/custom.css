@@ -1,229 +1,445 @@
 
 :root {
-  --keycloak-logo-url: none;
-  --keycloak-bg-logo-url: none;
-  --keycloak-card-top-color: transparent;
+  color-scheme: light;
+
+  --mt-background: #f8fafc;
+  --mt-surface: #ffffff;
+  --mt-foreground: #1e293b;
+  --mt-muted: #64748b;
+  --mt-border: #e2e8f0;
+
+  --mt-primary: #0f766e;
+  --mt-primary-hover: #115e59;
+
+  --mt-navy: #202b3b;
+  --mt-navy-deep: #182332;
+  --mt-mint: #a7e2d0;
 }
 
-/* Sayfa arka planı */
-.login-pf body {
+/* --------------------------------------------------
+   Page
+-------------------------------------------------- */
+
+html,
+body#keycloak-bg {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body#keycloak-bg {
+  margin: 0;
+  background: var(--mt-background);
+  color: var(--mt-foreground);
+  font-family:
+    "Geist",
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.pf-v5-c-login {
+  display: grid;
   min-height: 100vh;
+  min-height: 100svh;
+  place-items: center;
+  padding: 2rem;
+  background: var(--mt-background);
+}
+
+/* --------------------------------------------------
+   Main split layout
+-------------------------------------------------- */
+
+.pf-v5-c-login__container {
+  display: grid;
+  width: min(100%, 72rem);
+  min-height: min(46rem, calc(100vh - 4rem));
+  grid-template-columns:
+    minmax(0, 0.92fr)
+    minmax(0, 1.08fr);
+  grid-template-areas: "header main";
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--mt-border);
+  border-radius: 1.5rem;
+  background: var(--mt-surface);
+  box-shadow:
+    0 24px 70px rgba(30, 41, 59, 0.09),
+    0 4px 16px rgba(30, 41, 59, 0.04);
+}
+
+/* --------------------------------------------------
+   Left brand panel
+-------------------------------------------------- */
+
+.pf-v5-c-login__header {
+  position: relative;
   display: flex;
-  align-items: center;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  padding: clamp(1.25rem, 4vw, 3rem);
+  overflow: hidden;
+  padding: clamp(2.5rem, 5vw, 4.5rem);
   background:
     radial-gradient(
-      circle at 12% 15%,
-      rgba(15, 118, 110, 0.13),
+      circle at 85% 15%,
+      rgba(167, 226, 208, 0.13),
       transparent 32%
     ),
-    radial-gradient(
-      circle at 88% 85%,
-      rgba(20, 184, 166, 0.12),
-      transparent 30%
-    ),
-    linear-gradient(135deg, #f8fafc 0%, #eef4f5 100%);
+    linear-gradient(
+      145deg,
+      var(--mt-navy) 0%,
+      var(--mt-navy-deep) 100%
+    );
+  color: #ffffff;
 }
 
-/* Ana içerik */
-.pf-v5-c-login__main {
-  width: min(100%, 29rem);
-  margin-inline: auto;
+.pf-v5-c-login__header::before {
+  position: absolute;
+  top: -8rem;
+  right: -7rem;
+  width: 24rem;
+  height: 24rem;
+  border: 1px solid rgba(167, 226, 208, 0.13);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
 }
 
-/* Marka başlığı */
-#kc-header {
-  margin-bottom: 1.5rem;
+.pf-v5-c-login__header::after {
+  position: absolute;
+  bottom: 2.5rem;
+  left: clamp(2.5rem, 5vw, 4.5rem);
+  color: rgba(167, 226, 208, 0.88);
+  content: "GÜVENLİ  ·  İZLENEBİLİR  ·  HATA TOLERANSLI";
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
 
 #kc-header-wrapper {
-  color: #0f172a !important;
-  font-size: 0.95rem;
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: #ffffff !important;
+  font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   line-height: 1.5;
-  text-align: center;
-  text-transform: none;
+  text-align: left;
+  text-transform: uppercase;
   white-space: normal;
 }
 
 #kc-header-wrapper::before {
-  content: "";
   display: block;
   width: 3.75rem;
   height: 3.75rem;
-  margin: 0 auto 0.9rem;
+  margin-bottom: 1.25rem;
+  border-radius: 1rem;
   background: url("../img/brand-mark.svg") center / contain no-repeat;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  content: "";
 }
 
-/* Giriş kartı */
-.card-pf {
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 1.5rem;
-  background: #ffffff;
-  box-shadow:
-    0 24px 60px rgba(15, 23, 42, 0.09),
-    0 4px 12px rgba(15, 23, 42, 0.04);
+#kc-header-wrapper::after {
+  display: block;
+  max-width: 23rem;
+  margin-top: 2rem;
+  color: #ffffff;
+  content: "Dağıtık para transferi ve otomatik mutabakat";
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+/* --------------------------------------------------
+   Right form panel
+-------------------------------------------------- */
+
+.pf-v5-c-login__main {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2.5rem, 5vw, 5rem);
+  background: var(--mt-surface);
 }
 
 .pf-v5-c-login__main-header {
-  padding: 2rem 2rem 1rem;
-  border-top: 0;
-  background: #ffffff;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
+.pf-v5-c-login__main-title,
 #kc-page-title {
   margin: 0;
-  color: #0f172a;
-  font-size: 1.5rem;
+  color: var(--mt-foreground);
+  font-size: clamp(1.5rem, 2.4vw, 1.85rem);
   font-weight: 700;
-  letter-spacing: -0.025em;
-  text-align: center;
+  letter-spacing: -0.04em;
+  line-height: 1.25;
+  text-align: left;
 }
 
-/* Form alanı */
-#kc-content-wrapper {
-  padding: 0 2rem 2rem;
+.pf-v5-c-login__main-header-utilities {
+  align-self: flex-end;
+  margin-left: auto;
 }
 
-#kc-form-wrapper {
+.pf-v5-c-login__main-body {
   width: 100%;
+  margin-top: 1.75rem;
+}
+
+#kc-form-login {
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
 }
 
 #kc-form-login .pf-v5-c-form__group {
-  margin-block: 0 1.1rem;
+  margin-bottom: 1.25rem;
 }
 
-#kc-form-login label {
+#kc-form-login label,
+#kc-form-login .pf-v5-c-form__label {
   margin-bottom: 0.5rem;
   color: #334155;
   font-size: 0.85rem;
   font-weight: 600;
 }
 
+/* --------------------------------------------------
+   Inputs
+-------------------------------------------------- */
+
 #kc-form-login .pf-v5-c-form-control {
-  min-height: 3rem;
-  border: 1px solid #cbd5e1;
+  min-height: 3.1rem;
+  border: 1px solid #dbe3ec;
   border-radius: 0.75rem;
   background: #ffffff;
-  color: #0f172a;
+  color: var(--mt-foreground);
   box-shadow: none;
   transition:
     border-color 150ms ease,
-    box-shadow 150ms ease;
+    box-shadow 150ms ease,
+    background-color 150ms ease;
 }
 
-#kc-form-login .pf-v5-c-form-control:focus {
-  border-color: #0f766e;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+#kc-form-login .pf-v5-c-form-control:hover {
+  border-color: #aebdcb;
 }
 
-/* Giriş butonu */
+#kc-form-login .pf-v5-c-form-control:focus,
+#kc-form-login .pf-v5-c-form-control:focus-within {
+  border-color: var(--mt-primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.13);
+}
+
+#kc-form-login input::placeholder {
+  color: #94a3b8;
+}
+
+/* --------------------------------------------------
+   Primary button
+-------------------------------------------------- */
+
 #kc-login {
-  min-height: 3rem;
-  border: 1px solid #0f766e;
+  width: 100%;
+  min-height: 3.1rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--mt-primary);
   border-radius: 0.75rem;
-  background: #0f766e;
+  background: var(--mt-primary);
   color: #ffffff;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.13);
   transition:
+    border-color 150ms ease,
     background-color 150ms ease,
+    box-shadow 150ms ease,
     transform 150ms ease;
 }
 
 #kc-login:hover {
-  border-color: #115e59;
-  background: #115e59;
+  border-color: var(--mt-primary-hover);
+  background: var(--mt-primary-hover);
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.18);
 }
 
 #kc-login:active {
   transform: translateY(1px);
 }
 
-/* Yardımcı bağlantılar */
+#kc-login:focus-visible {
+  outline: 3px solid rgba(15, 118, 110, 0.25);
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------------
+   Links and options
+-------------------------------------------------- */
+
+#kc-form-options,
+#kc-form-buttons {
+  width: 100%;
+}
+
 #kc-form-login a,
-#kc-registration-container a {
-  color: #0f766e;
+#kc-info-wrapper a {
+  color: var(--mt-primary);
   font-weight: 600;
   text-decoration: none;
 }
 
 #kc-form-login a:hover,
-#kc-registration-container a:hover {
-  color: #115e59;
+#kc-info-wrapper a:hover {
+  color: var(--mt-primary-hover);
   text-decoration: underline;
 }
 
-/* Bilgi ve hata alanları */
+#kc-form-options {
+  margin-top: 0.25rem;
+  color: var(--mt-muted);
+  font-size: 0.8rem;
+}
+
+/* Language selector */
+
+#login-select-toggle {
+  min-height: 2.4rem;
+  border-color: var(--mt-border);
+  border-radius: 0.65rem;
+  background: #ffffff;
+  color: var(--mt-foreground);
+  font-size: 0.8rem;
+}
+
+/* --------------------------------------------------
+   Alerts and secondary sections
+-------------------------------------------------- */
+
 .pf-v5-c-alert {
+  margin-bottom: 1rem;
   border-radius: 0.75rem;
 }
 
-#kc-content-wrapper .alert {
-  margin-bottom: 1.25rem;
-  border-radius: 0.75rem;
+.pf-v5-c-login__main-footer {
+  width: 100%;
 }
 
-/* Kayıt / ek bilgi alanı */
+#kc-info {
+  margin-top: 1.5rem;
+}
+
 #kc-info-wrapper {
-  padding: 1.25rem 2rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--mt-border);
+  background: transparent;
+  color: var(--mt-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
 
-/* Mobil */
-@media (max-width: 480px) {
-  .login-pf body {
+#kc-info-wrapper a {
+  font-weight: 600;
+}
+
+/* Keep checkbox aligned with the app form style */
+
+#kc-form-login input[type="checkbox"] {
+  accent-color: var(--mt-primary);
+}
+
+/* --------------------------------------------------
+   Responsive layout
+-------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .pf-v5-c-login {
     padding: 1rem;
   }
 
-  .card-pf {
-    border-radius: 1.1rem;
+  .pf-v5-c-login__container {
+    width: 100%;
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "main";
+    border-radius: 1.25rem;
   }
 
-  .pf-v5-c-login__main-header {
-    padding: 1.5rem 1.25rem 0.9rem;
+  .pf-v5-c-login__header {
+    min-height: 16rem;
+    padding: 2rem;
   }
 
-  #kc-content-wrapper {
-    padding: 0 1.25rem 1.5rem;
+  .pf-v5-c-login__header::after {
+    bottom: 1.5rem;
+    left: 2rem;
+    font-size: 0.58rem;
   }
 
-  #kc-info-wrapper {
-    padding: 1rem 1.25rem;
+  #kc-header-wrapper::before {
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.9rem;
   }
 
-  #kc-page-title {
-    font-size: 1.3rem;
+  #kc-header-wrapper::after {
+    max-width: 22rem;
+    margin-top: 1rem;
+    font-size: 1.65rem;
+  }
+
+  .pf-v5-c-login__main {
+    padding: 2.25rem 2rem;
+  }
+
+  .pf-v5-c-login__main-body {
+    margin-top: 1.5rem;
   }
 }
 
-/* Sistem koyu tema kullanıyorsa okunabilirliği koru */
-.pf-v5-theme-dark .card-pf {
-  border-color: #334155;
-  background: #172033;
-}
+@media (max-width: 420px) {
+  .pf-v5-c-login {
+    padding: 0;
+  }
 
-.pf-v5-theme-dark .pf-v5-c-login__main-header {
-  background: #172033;
-}
+  .pf-v5-c-login__container {
+    min-height: 100svh;
+    border: 0;
+    border-radius: 0;
+  }
 
-.pf-v5-theme-dark #kc-header-wrapper,
-.pf-v5-theme-dark #kc-page-title,
-.pf-v5-theme-dark #kc-form-login label {
-  color: #f8fafc !important;
-}
+  .pf-v5-c-login__header {
+    min-height: 14rem;
+    padding: 1.5rem;
+  }
 
-.pf-v5-theme-dark #kc-form-login .pf-v5-c-form-control {
-  border-color: #475569;
-  background: #0f172a;
-  color: #f8fafc;
-}
+  .pf-v5-c-login__header::after {
+    left: 1.5rem;
+  }
 
-.pf-v5-theme-dark #kc-info-wrapper {
-  border-color: #334155;
-  background: #111827;
+  .pf-v5-c-login__main {
+    padding: 2rem 1.5rem;
+  }
 }
