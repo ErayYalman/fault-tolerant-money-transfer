@@ -2081,7 +2081,14 @@
       }
     } ]
   },
-  "internationalizationEnabled" : false,
+  "internationalizationEnabled" : true,
+  "displayName": "Money Transfer Platform",
+  "loginTheme": "money-transfer",
+  "supportedLocales": [
+    "tr",
+    "en"
+  ],
+  "defaultLocale": "tr",
   "authenticationFlows" : [ {
     "id" : "33b15ae1-655a-4172-8f85-347aa71d968e",
     "alias" : "Account verification options",

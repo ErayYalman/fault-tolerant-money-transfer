@@ -1,0 +1,229 @@
+
+:root {
+  --keycloak-logo-url: none;
+  --keycloak-bg-logo-url: none;
+  --keycloak-card-top-color: transparent;
+}
+
+/* Sayfa arka planı */
+.login-pf body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.25rem, 4vw, 3rem);
+  background:
+    radial-gradient(
+      circle at 12% 15%,
+      rgba(15, 118, 110, 0.13),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 88% 85%,
+      rgba(20, 184, 166, 0.12),
+      transparent 30%
+    ),
+    linear-gradient(135deg, #f8fafc 0%, #eef4f5 100%);
+}
+
+/* Ana içerik */
+.pf-v5-c-login__main {
+  width: min(100%, 29rem);
+  margin-inline: auto;
+}
+
+/* Marka başlığı */
+#kc-header {
+  margin-bottom: 1.5rem;
+}
+
+#kc-header-wrapper {
+  color: #0f172a !important;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-align: center;
+  text-transform: none;
+  white-space: normal;
+}
+
+#kc-header-wrapper::before {
+  content: "";
+  display: block;
+  width: 3.75rem;
+  height: 3.75rem;
+  margin: 0 auto 0.9rem;
+  background: url("../img/brand-mark.svg") center / contain no-repeat;
+}
+
+/* Giriş kartı */
+.card-pf {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 1.5rem;
+  background: #ffffff;
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.09),
+    0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.pf-v5-c-login__main-header {
+  padding: 2rem 2rem 1rem;
+  border-top: 0;
+  background: #ffffff;
+}
+
+#kc-page-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-align: center;
+}
+
+/* Form alanı */
+#kc-content-wrapper {
+  padding: 0 2rem 2rem;
+}
+
+#kc-form-wrapper {
+  width: 100%;
+}
+
+#kc-form-login .pf-v5-c-form__group {
+  margin-block: 0 1.1rem;
+}
+
+#kc-form-login label {
+  margin-bottom: 0.5rem;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+#kc-form-login .pf-v5-c-form-control {
+  min-height: 3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+#kc-form-login .pf-v5-c-form-control:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+}
+
+/* Giriş butonu */
+#kc-login {
+  min-height: 3rem;
+  border: 1px solid #0f766e;
+  border-radius: 0.75rem;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+#kc-login:hover {
+  border-color: #115e59;
+  background: #115e59;
+}
+
+#kc-login:active {
+  transform: translateY(1px);
+}
+
+/* Yardımcı bağlantılar */
+#kc-form-login a,
+#kc-registration-container a {
+  color: #0f766e;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#kc-form-login a:hover,
+#kc-registration-container a:hover {
+  color: #115e59;
+  text-decoration: underline;
+}
+
+/* Bilgi ve hata alanları */
+.pf-v5-c-alert {
+  border-radius: 0.75rem;
+}
+
+#kc-content-wrapper .alert {
+  margin-bottom: 1.25rem;
+  border-radius: 0.75rem;
+}
+
+/* Kayıt / ek bilgi alanı */
+#kc-info-wrapper {
+  padding: 1.25rem 2rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* Mobil */
+@media (max-width: 480px) {
+  .login-pf body {
+    padding: 1rem;
+  }
+
+  .card-pf {
+    border-radius: 1.1rem;
+  }
+
+  .pf-v5-c-login__main-header {
+    padding: 1.5rem 1.25rem 0.9rem;
+  }
+
+  #kc-content-wrapper {
+    padding: 0 1.25rem 1.5rem;
+  }
+
+  #kc-info-wrapper {
+    padding: 1rem 1.25rem;
+  }
+
+  #kc-page-title {
+    font-size: 1.3rem;
+  }
+}
+
+/* Sistem koyu tema kullanıyorsa okunabilirliği koru */
+.pf-v5-theme-dark .card-pf {
+  border-color: #334155;
+  background: #172033;
+}
+
+.pf-v5-theme-dark .pf-v5-c-login__main-header {
+  background: #172033;
+}
+
+.pf-v5-theme-dark #kc-header-wrapper,
+.pf-v5-theme-dark #kc-page-title,
+.pf-v5-theme-dark #kc-form-login label {
+  color: #f8fafc !important;
+}
+
+.pf-v5-theme-dark #kc-form-login .pf-v5-c-form-control {
+  border-color: #475569;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.pf-v5-theme-dark #kc-info-wrapper {
+  border-color: #334155;
+  background: #111827;
+}

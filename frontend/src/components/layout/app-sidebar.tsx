@@ -46,6 +46,7 @@ const navigationGroups: NavigationGroup[] = [
         title: "Genel Bakış",
         url: "/",
         icon: LayoutDashboard,
+        allowedRoles: ["CUSTOMER", "OPERATIONS"],
       },
       {
         title: "Hesaplarım",
@@ -81,6 +82,17 @@ const navigationGroups: NavigationGroup[] = [
         url: "/operations/anomalies",
         icon: ShieldCheck,
         allowedRoles: ["OPERATIONS", "ADMIN"],
+      },
+    ],
+  },
+  {
+    label: "YÖNETİM",
+    items: [
+      {
+        title: "Yönetim Paneli",
+        url: "/",
+        icon: ShieldCheck,
+        allowedRoles: ["ADMIN"],
       },
     ],
   },

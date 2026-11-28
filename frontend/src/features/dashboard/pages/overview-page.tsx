@@ -15,6 +15,8 @@ import {
 import { Link } from "react-router"
 
 import { useAuth } from "@/app/providers/AuthProvider"
+import { AccessDeniedPage } from "@/app/AccessDeniedPage"
+import { AdminOverviewPage } from "@/features/dashboard/pages/admin-overview-page"
 
 import {
   type AccountSummary,
@@ -901,9 +903,17 @@ function OperationsOverviewPage() {
 export function OverviewPage() {
   const { hasRole } = useAuth()
 
+  if (hasRole("ADMIN")) {
+    return <AdminOverviewPage />
+  }
+
+  if (hasRole("OPERATIONS")) {
+    return <OperationsOverviewPage />
+  }
+
   if (hasRole("CUSTOMER")) {
     return <CustomerOverviewPage />
   }
 
-  return <OperationsOverviewPage />
+  return <AccessDeniedPage />
 }
