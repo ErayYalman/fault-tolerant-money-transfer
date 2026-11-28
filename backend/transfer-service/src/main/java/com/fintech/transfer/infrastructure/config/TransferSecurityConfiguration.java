@@ -1,4 +1,3 @@
-
 package com.fintech.transfer.infrastructure.config;
 
 import java.util.Collection;
@@ -6,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -23,126 +23,140 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration(proxyBeanMethods = false)
 public class TransferSecurityConfiguration {
 
-    private static final String SERVICE_CLIENT_ID = "transfer-service";
-    private static final String RECONCILIATION_CLIENT_ID = "reconciliation-service";
-    private static final String WEB_CLIENT_ID = "money-transfer-web";
+        private static final String SERVICE_CLIENT_ID = "transfer-service";
+        private static final String RECONCILIATION_CLIENT_ID = "reconciliation-service";
+        private static final String WEB_CLIENT_ID = "money-transfer-web";
 
-    @Bean
-    public JwtAuthenticationConverter transferJwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
+        @Value("${app.openapi.public:false}")
+        private boolean openApiPublic;
 
-        Converter<Jwt, Collection<GrantedAuthority>> authoritiesConverter = jwt -> {
-            Set<GrantedAuthority> authorities = new LinkedHashSet<>();
+        @Bean
+        public JwtAuthenticationConverter transferJwtAuthenticationConverter() {
+                JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
 
-            Collection<GrantedAuthority> scopeAuthorities = scopeConverter.convert(jwt);
+                Converter<Jwt, Collection<GrantedAuthority>> authoritiesConverter = jwt -> {
+                        Set<GrantedAuthority> authorities = new LinkedHashSet<>();
 
-            if (scopeAuthorities != null) {
-                authorities.addAll(scopeAuthorities);
-            }
+                        Collection<GrantedAuthority> scopeAuthorities = scopeConverter.convert(jwt);
 
-            // Human-user realm roles are trusted only from the browser client.
-            if (WEB_CLIENT_ID.equals(jwt.getClaimAsString("azp"))) {
-                addRoles(
-                        jwt.getClaim("realm_access"),
-                        authorities);
-            }
+                        if (scopeAuthorities != null) {
+                                authorities.addAll(scopeAuthorities);
+                        }
 
-            // Service client roles are accepted only from the
-            // dedicated reconciliation-service client.
-            if (RECONCILIATION_CLIENT_ID.equals(
-                    jwt.getClaimAsString("azp"))) {
+                        // Human-user realm roles are trusted only from the browser client.
+                        if (WEB_CLIENT_ID.equals(jwt.getClaimAsString("azp"))) {
+                                addRoles(
+                                                jwt.getClaim("realm_access"),
+                                                authorities);
+                        }
 
-                Object resourceAccessClaim = jwt.getClaims().get("resource_access");
+                        // Service client roles are accepted only from the
+                        // dedicated reconciliation-service client.
+                        if (RECONCILIATION_CLIENT_ID.equals(
+                                        jwt.getClaimAsString("azp"))) {
 
-                if (resourceAccessClaim instanceof Map<?, ?> resourceAccess) {
-                    Object transferAccess = resourceAccess.get(SERVICE_CLIENT_ID);
+                                Object resourceAccessClaim = jwt.getClaims().get("resource_access");
 
-                    addRoles(transferAccess, authorities);
+                                if (resourceAccessClaim instanceof Map<?, ?> resourceAccess) {
+                                        Object transferAccess = resourceAccess.get(SERVICE_CLIENT_ID);
+
+                                        addRoles(transferAccess, authorities);
+                                }
+                        }
+
+                        return authorities;
+                };
+
+                JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+
+                converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
+
+                return converter;
+        }
+
+        private void addRoles(
+                        Object accessClaim,
+                        Set<GrantedAuthority> authorities) {
+
+                if (!(accessClaim instanceof Map<?, ?> access)) {
+                        return;
                 }
-            }
 
-            return authorities;
-        };
+                Object rolesClaim = access.get("roles");
 
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+                if (!(rolesClaim instanceof Collection<?> roles)) {
+                        return;
+                }
 
-        converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
-
-        return converter;
-    }
-
-    private void addRoles(
-            Object accessClaim,
-            Set<GrantedAuthority> authorities) {
-
-        if (!(accessClaim instanceof Map<?, ?> access)) {
-            return;
+                for (Object role : roles) {
+                        if (role instanceof String roleName && !roleName.isBlank()) {
+                                authorities.add(
+                                                new SimpleGrantedAuthority("ROLE_" + roleName));
+                        }
+                }
         }
 
-        Object rolesClaim = access.get("roles");
+        @Bean
+        public SecurityFilterChain transferSecurityFilterChain(
+                        HttpSecurity http,
+                        JwtAuthenticationConverter transferJwtAuthenticationConverter)
+                        throws Exception {
 
-        if (!(rolesClaim instanceof Collection<?> roles)) {
-            return;
+                return http
+                                .csrf(AbstractHttpConfigurer::disable)
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(authorize -> {
+                                        authorize
+                                                        .requestMatchers(
+                                                                        "/actuator/health",
+                                                                        "/actuator/health/**")
+                                                        .permitAll()
+
+                                                        .requestMatchers(
+                                                                        "/internal/transfers",
+                                                                        "/internal/transfers/**")
+                                                        .hasAuthority("ROLE_reconciliation-read")
+
+                                                        .requestMatchers(
+                                                                        HttpMethod.POST,
+                                                                        "/api/v1/transfers")
+                                                        .hasRole("CUSTOMER")
+
+                                                        .requestMatchers(
+                                                                        HttpMethod.GET,
+                                                                        "/api/v1/transfers",
+                                                                        "/api/v1/transfers/**")
+                                                        .hasRole("CUSTOMER")
+
+                                                        .requestMatchers(
+                                                                        HttpMethod.GET,
+                                                                        "/api/v1/recipients",
+                                                                        "/api/v1/recipients/**")
+                                                        .hasRole("CUSTOMER");
+
+                                        if (openApiPublic) {
+                                                authorize.requestMatchers(
+                                                                "/v3/api-docs",
+                                                                "/v3/api-docs/**")
+                                                                .permitAll();
+                                        }
+
+                                        authorize
+                                                        .requestMatchers(
+                                                                        "/v3/api-docs",
+                                                                        "/v3/api-docs/**",
+                                                                        "/swagger-ui/**",
+                                                                        "/swagger-ui.html")
+                                                        .authenticated()
+
+                                                        .anyRequest()
+                                                        .denyAll();
+                                })
+                                .oauth2ResourceServer(oauth2 -> oauth2
+                                                .jwt(jwt -> jwt
+                                                                .jwtAuthenticationConverter(
+                                                                                transferJwtAuthenticationConverter)))
+                                .build();
         }
-
-        for (Object role : roles) {
-            if (role instanceof String roleName && !roleName.isBlank()) {
-                authorities.add(
-                        new SimpleGrantedAuthority("ROLE_" + roleName));
-            }
-        }
-    }
-
-    @Bean
-    public SecurityFilterChain transferSecurityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationConverter transferJwtAuthenticationConverter)
-            throws Exception {
-
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/actuator/health",
-                                "/actuator/health/**")
-                        .permitAll()
-
-                        .requestMatchers(
-                                "/internal/transfers",
-                                "/internal/transfers/**")
-                        .hasAuthority("ROLE_reconciliation-read")
-
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/v1/transfers")
-                        .hasRole("CUSTOMER")
-
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/transfers",
-                                "/api/v1/transfers/**")
-                        .hasRole("CUSTOMER")
-
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/recipients",
-                                "/api/v1/recipients/**")
-                        .hasRole("CUSTOMER")
-
-                        .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html")
-                        .authenticated()
-
-                        .anyRequest()
-                        .denyAll())
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt
-                                .jwtAuthenticationConverter(
-                                        transferJwtAuthenticationConverter)))
-                .build();
-    }
 }

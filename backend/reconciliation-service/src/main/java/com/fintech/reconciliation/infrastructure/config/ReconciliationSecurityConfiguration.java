@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +29,9 @@ public class ReconciliationSecurityConfiguration {
         private static final Set<String> ALLOWED_ROLES = Set.of(
                         "OPERATIONS",
                         "ADMIN");
+
+        @Value("${app.openapi.public:false}")
+        private boolean openApiPublic;
 
         @Bean
         public JwtAuthenticationConverter reconciliationJwtAuthenticationConverter() {
@@ -83,31 +87,40 @@ public class ReconciliationSecurityConfiguration {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                                .authorizeHttpRequests(authorize -> authorize
+                                .authorizeHttpRequests(authorize -> {
+                                        authorize
+                                                        // Health probes remain publicly accessible.
+                                                        .requestMatchers(
+                                                                        "/actuator/health",
+                                                                        "/actuator/health/**")
+                                                        .permitAll();
 
-                                                // Health probes remain publicly accessible.
-                                                .requestMatchers(
-                                                                "/actuator/health",
-                                                                "/actuator/health/**")
-                                                .permitAll()
-
-                                                // OpenAPI / Swagger UI documentation requires a valid bearer token.
-                                                .requestMatchers(
+                                        if (openApiPublic) {
+                                                authorize.requestMatchers(
                                                                 "/v3/api-docs",
-                                                                "/v3/api-docs/**",
-                                                                "/swagger-ui/**",
-                                                                "/swagger-ui.html")
-                                                .authenticated()
+                                                                "/v3/api-docs/**")
+                                                                .permitAll();
+                                        }
 
-                                                // Manual reconciliation and operational monitoring.
-                                                .requestMatchers(
-                                                                "/api/v1/reconciliation/**",
-                                                                "/actuator/**")
-                                                .hasAnyRole("OPERATIONS", "ADMIN")
+                                        authorize
+                                                        // OpenAPI / Swagger UI documentation requires a valid bearer token.
+                                                        .requestMatchers(
+                                                                        "/v3/api-docs",
+                                                                        "/v3/api-docs/**",
+                                                                        "/swagger-ui/**",
+                                                                        "/swagger-ui.html")
+                                                        .authenticated()
 
-                                                // Everything else is denied by default.
-                                                .anyRequest()
-                                                .denyAll())
+                                                        // Manual reconciliation and operational monitoring.
+                                                        .requestMatchers(
+                                                                        "/api/v1/reconciliation/**",
+                                                                        "/actuator/**")
+                                                        .hasAnyRole("OPERATIONS", "ADMIN")
+
+                                                        // Everything else is denied by default.
+                                                        .anyRequest()
+                                                        .denyAll();
+                                })
 
                                 .oauth2ResourceServer(oauth2 -> oauth2
                                                 .jwt(jwt -> jwt

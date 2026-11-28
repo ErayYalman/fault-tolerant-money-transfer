@@ -19,7 +19,8 @@ public class OpenApiConfiguration {
                         .title("Fault-Tolerant Money Transfer — Bank A API")
                         .version("v1")
                         .description("""
-                                REST API for customer-owned Bank A accounts
+                                REST API for customer-owned Bank A accounts,
+                                internal account-to-account transfers,
                                 and account ledger queries.
                                 """))
                 .components(new Components()

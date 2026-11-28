@@ -14,6 +14,7 @@ import { TransferHistoryPage } from "@/features/transfers/pages/transfer-history
 import { ReconciliationCenterPage } from "@/features/reconciliation/pages/reconciliation-center-page"
 import { AnomalyMonitoringPage } from "@/features/reconciliation/pages/anomaly-monitoring-page"
 import { ReconciliationReportsPage } from "@/features/reconciliation/pages/reconciliation-reports-page"
+import { InternalTransferPage } from "@/features/accounts/pages/internal-transfer-page"
 
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
@@ -42,6 +43,11 @@ export function AppRouter() {
           <Route
             path="accounts/:accountId/ledger"
             element={<AccountLedgerPage />}
+          />
+
+          <Route
+            path="accounts/internal-transfer"
+            element={<InternalTransferPage />}
           />
 
           <Route

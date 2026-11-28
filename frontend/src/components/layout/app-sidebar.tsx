@@ -55,7 +55,13 @@ const navigationGroups: NavigationGroup[] = [
         allowedRoles: ["CUSTOMER"],
       },
       {
-        title: "Para Transferi",
+        title: "Hesaplar Arası Transfer",
+        url: "/accounts/internal-transfer",
+        icon: ArrowLeftRight,
+        allowedRoles: ["CUSTOMER"],
+      },
+      {
+        title: "Bankalar Arası Transfer",
         url: "/transfers/new",
         icon: ArrowLeftRight,
         allowedRoles: ["CUSTOMER"],

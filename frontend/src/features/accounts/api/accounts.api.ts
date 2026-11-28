@@ -4,11 +4,13 @@ import type {
 } from "@/types/generated/payment-a-api"
 
 import type { ApiRequestOptions } from "@/lib/api/http-client"
-import { apiGet } from "@/lib/api/http-client"
+import { apiGet, apiPost } from "@/lib/api/http-client"
 import { buildQueryString } from "@/lib/api/query-params"
 
 type AccountListOperation = PaymentAOperations["findOwnAccounts"]
 type AccountLedgerOperation = PaymentAOperations["findOwnAccountLedger"]
+type InternalTransferOperation =
+  PaymentAOperations["createInternalTransfer"]
 
 export type AccountListQuery =
   NonNullable<AccountListOperation["parameters"]["query"]>
@@ -41,6 +43,12 @@ export type LedgerEntry =
 export type LedgerEntryPageResponse =
   AccountLedgerOperation["responses"][200]["content"]["*/*"]
 
+export type CreateInternalTransferRequest =
+  InternalTransferOperation["requestBody"]["content"]["application/json"]
+
+export type InternalTransferResponse =
+  InternalTransferOperation["responses"][201]["content"]["*/*"]
+
 /**
  * Authenticated customer's Bank A accounts.
  */
@@ -65,5 +73,23 @@ export function getAccountLedger(
   return apiGet<LedgerEntryPageResponse>(
     `/api/v1/accounts/${encodeURIComponent(accountId)}/ledger${buildQueryString(query)}`,
     options,
+  )
+}
+
+/**
+ * Transfer money between two customer-owned Bank A accounts.
+ *
+ * The caller must retain the idempotency key and reuse the same
+ * request payload after an ambiguous result.
+ */
+export function createInternalTransfer(
+  request: CreateInternalTransferRequest,
+): Promise<InternalTransferResponse> {
+  return apiPost<
+    CreateInternalTransferRequest,
+    InternalTransferResponse
+  >(
+    "/api/v1/accounts/internal-transfers",
+    request,
   )
 }

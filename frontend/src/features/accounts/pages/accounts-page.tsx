@@ -1,5 +1,6 @@
 import { useState } from "react"
 import {
+  ArrowLeftRight,
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
@@ -249,17 +250,30 @@ export function AccountsPage() {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void accountsQuery.refetch()}
-          disabled={accountsQuery.isFetching}
-        >
-          <RefreshCw
-            className={`size-4 ${accountsQuery.isFetching ? "animate-spin" : ""}`}
-          />
-          Yenile
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link to="/accounts/internal-transfer" />}
+          >
+            <ArrowLeftRight className="size-4" />
+            Hesaplar Arası Transfer
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void accountsQuery.refetch()}
+            disabled={accountsQuery.isFetching}
+          >
+            <RefreshCw
+              className={`size-4 ${
+                accountsQuery.isFetching ? "animate-spin" : ""
+              }`}
+            />
+            Yenile
+          </Button>
+        </div>
       </section>
 
       {accountsQuery.isPending ? (

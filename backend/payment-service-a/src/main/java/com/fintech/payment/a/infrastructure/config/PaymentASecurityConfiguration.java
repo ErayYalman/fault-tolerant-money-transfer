@@ -1,4 +1,3 @@
-
 package com.fintech.payment.a.infrastructure.config;
 
 import java.util.Collection;
@@ -6,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -25,6 +25,9 @@ public class PaymentASecurityConfiguration {
     private static final String RESOURCE_CLIENT_ID = "payment-service-a";
     private static final String RECONCILIATION_CLIENT_ID = "reconciliation-service";
     private static final String WEB_CLIENT_ID = "money-transfer-web";
+
+    @Value("${app.openapi.public:false}")
+    private boolean openApiPublic;
 
     @Bean
     public JwtAuthenticationConverter paymentAJwtAuthenticationConverter() {
@@ -102,32 +105,48 @@ public class PaymentASecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/actuator/health",
-                                "/actuator/health/**")
-                        .permitAll()
+                .authorizeHttpRequests(authorize -> {
+                    authorize
+                            .requestMatchers(
+                                    "/actuator/health",
+                                    "/actuator/health/**")
+                            .permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/v1/accounts",
-                                "/api/v1/accounts/**")
-                        .hasAuthority("ROLE_CUSTOMER")
+                            .requestMatchers(
+                                    HttpMethod.POST,
+                                    "/api/v1/accounts/internal-transfers")
+                            .hasAuthority("ROLE_CUSTOMER")
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/internal/ledger",
-                                "/internal/ledger/**")
-                        .hasAuthority("ROLE_reconciliation-read")
+                            .requestMatchers(
+                                    HttpMethod.GET,
+                                    "/api/v1/accounts",
+                                    "/api/v1/accounts/**")
+                            .hasAuthority("ROLE_CUSTOMER")
 
-                        .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html")
-                        .authenticated()
+                            .requestMatchers(
+                                    HttpMethod.GET,
+                                    "/internal/ledger",
+                                    "/internal/ledger/**")
+                            .hasAuthority("ROLE_reconciliation-read");
 
-                        .anyRequest()
-                        .denyAll())
+                    if (openApiPublic) {
+                        authorize.requestMatchers(
+                                "/v3/api-docs",
+                                "/v3/api-docs/**")
+                                .permitAll();
+                    }
+
+                    authorize
+                            .requestMatchers(
+                                    "/v3/api-docs",
+                                    "/v3/api-docs/**",
+                                    "/swagger-ui/**",
+                                    "/swagger-ui.html")
+                            .authenticated()
+
+                            .anyRequest()
+                            .denyAll();
+                })
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
                                 .jwtAuthenticationConverter(

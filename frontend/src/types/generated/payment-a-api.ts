@@ -4,6 +4,31 @@
  */
 
 export interface paths {
+    "/api/v1/accounts/internal-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer money between own Bank A accounts
+         * @description Transfers money atomically between two active Bank A accounts
+         *     owned by the authenticated customer.
+         *
+         *     The source and destination accounts must use the same currency.
+         *     A repeated idempotency key with the same request content returns
+         *     the previously completed transfer.
+         */
+        post: operations["createInternalTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts": {
         parameters: {
             query?: never;
@@ -52,6 +77,52 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Request for transferring money between own Bank A accounts */
+        CreateInternalTransferRequest: {
+            /**
+             * @description Transfer amount
+             * @example 250
+             */
+            amount: number;
+            /**
+             * @description ISO 4217 currency code
+             * @example TRY
+             */
+            currency: string;
+            /**
+             * Format: uuid
+             * @description Source Bank A account UUID
+             * @example 11111111-1111-1111-1111-111111111111
+             */
+            fromAccountId: string;
+            /**
+             * Format: uuid
+             * @description Destination Bank A account UUID
+             * @example 22222222-2222-2222-2222-222222222222
+             */
+            toAccountId: string;
+            /**
+             * @description Client-generated idempotency key
+             * @example bank-a-internal-transfer-001
+             */
+            idempotencyKey: string;
+        };
+        InternalTransferResponse: {
+            /** Format: uuid */
+            transferId?: string;
+            /** Format: uuid */
+            correlationId?: string;
+            /** Format: uuid */
+            fromAccountId?: string;
+            /** Format: uuid */
+            toAccountId?: string;
+            amount?: number;
+            currency?: string;
+            status?: string;
+            replayed?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         AccountPageResponse: {
             content?: components["schemas"]["AccountSummaryResponse"][];
             /** Format: int32 */
@@ -92,7 +163,11 @@ export interface components {
             amount?: number;
             balanceBefore?: number;
             balanceAfter?: number;
-            entryType?: string;
+            /**
+             * @description Ledger movement type
+             * @enum {string}
+             */
+            entryType?: "DEBIT" | "CREDIT" | "REVERSAL";
             status?: string;
             /** Format: date-time */
             createdAt?: string;
@@ -106,6 +181,93 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createInternalTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInternalTransferRequest"];
+            };
+        };
+        responses: {
+            /** @description Previously completed transfer returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description Internal transfer completed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description CUSTOMER role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description Account not found or not owned by customer */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description Idempotency key reused with different content */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+            /** @description Inactive account, insufficient funds or currency mismatch */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["InternalTransferResponse"];
+                };
+            };
+        };
+    };
     findOwnAccounts: {
         parameters: {
             query?: {

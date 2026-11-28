@@ -39,6 +39,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { DailyMetricsCharts } from "@/features/reconciliation/components/daily-metrics-charts"
 
 const HISTORY_PAGE_SIZE = 10
 
@@ -761,6 +762,14 @@ export function ReconciliationReportsPage() {
                 </p>
               </div>
             </div>
+          )}
+
+          {dailyItems.length > 0 && (
+            <DailyMetricsCharts
+              items={dailyItems}
+              fromDate={appliedRange.fromDate}
+              toDate={appliedRange.toDate}
+            />
           )}
 
           <Card className="shadow-none">

@@ -50,5 +50,12 @@ public record LedgerEntry(
                     "REVERSAL balanceAfter must equal balanceBefore + amount"
             );
         }
+
+        if (entryType == LedgerEntryType.CREDIT
+                && balanceBefore.add(amount).compareTo(balanceAfter) != 0) {
+            throw new IllegalArgumentException(
+                    "CREDIT balanceAfter must equal balanceBefore + amount"
+            );
+        }
     }
 }

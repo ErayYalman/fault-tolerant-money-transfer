@@ -13,6 +13,8 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,32 @@ public class AccountPersistenceAdapter implements AccountRepository {
     public Optional<Account> findById(UUID accountId) {
         return repository.findById(accountId)
                 .map(mapper::toDomain);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Account> findAllByIdsForUpdate(
+            List<UUID> accountIds) {
+
+        Objects.requireNonNull(
+                accountIds,
+                "accountIds must not be null");
+
+        List<UUID> distinctAccountIds = accountIds.stream()
+                .map(id -> Objects.requireNonNull(
+                        id,
+                        "account ID must not be null"))
+                .distinct()
+                .toList();
+
+        if (distinctAccountIds.isEmpty()) {
+            return List.of();
+        }
+
+        return repository.findAllByIdsForUpdate(distinctAccountIds)
+                .stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 
     @Override

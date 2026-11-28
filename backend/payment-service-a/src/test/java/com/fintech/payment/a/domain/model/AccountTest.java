@@ -136,4 +136,76 @@ class AccountTest {
                 assertThat(account.getStatus())
                                 .isEqualTo(AccountStatus.FROZEN);
         }
+
+        @Test
+        void shouldCreditBalanceAndReturnBeforeAndAfterValues() {
+                Account account = account(
+                                new BigDecimal("100.00"),
+                                AccountStatus.ACTIVE);
+
+                Account.CreditResult result = account.credit(
+                                new BigDecimal("25.00"),
+                                "TRY",
+                                DEBIT_AT);
+
+                assertThat(result.balanceBefore())
+                                .isEqualByComparingTo("100.00");
+
+                assertThat(result.balanceAfter())
+                                .isEqualByComparingTo("125.00");
+
+                assertThat(account.getBalance())
+                                .isEqualByComparingTo("125.00");
+
+                assertThat(account.getUpdatedAt())
+                                .isEqualTo(DEBIT_AT);
+        }
+
+        @Test
+        void shouldRejectCreditWhenAccountIsNotActive() {
+                Account account = account(
+                                new BigDecimal("100.00"),
+                                AccountStatus.FROZEN);
+
+                assertThatThrownBy(() -> account.credit(
+                                new BigDecimal("25.00"),
+                                "TRY",
+                                DEBIT_AT))
+                                .isInstanceOf(AccountNotActiveException.class);
+
+                assertThat(account.getBalance())
+                                .isEqualByComparingTo("100.00");
+        }
+
+        @Test
+        void shouldRejectCreditWhenCurrencyDoesNotMatch() {
+                Account account = account(
+                                new BigDecimal("100.00"),
+                                AccountStatus.ACTIVE);
+
+                assertThatThrownBy(() -> account.credit(
+                                new BigDecimal("25.00"),
+                                "USD",
+                                DEBIT_AT))
+                                .isInstanceOf(CurrencyMismatchException.class);
+
+                assertThat(account.getBalance())
+                                .isEqualByComparingTo("100.00");
+        }
+
+        @Test
+        void shouldRejectNonPositiveCreditAmount() {
+                Account account = account(
+                                new BigDecimal("100.00"),
+                                AccountStatus.ACTIVE);
+
+                assertThatThrownBy(() -> account.credit(
+                                BigDecimal.ZERO,
+                                "TRY",
+                                DEBIT_AT))
+                                .isInstanceOf(IllegalArgumentException.class);
+
+                assertThat(account.getBalance())
+                                .isEqualByComparingTo("100.00");
+        }
 }

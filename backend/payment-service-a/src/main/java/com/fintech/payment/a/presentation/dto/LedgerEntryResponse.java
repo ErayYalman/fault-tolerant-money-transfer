@@ -1,5 +1,7 @@
 package com.fintech.payment.a.presentation.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -13,6 +15,10 @@ public record LedgerEntryResponse(
         BigDecimal amount,
         BigDecimal balanceBefore,
         BigDecimal balanceAfter,
+        @Schema(
+                description = "Ledger movement type",
+                allowableValues = {"DEBIT", "CREDIT", "REVERSAL"}
+        )
         String entryType,
         String status,
         Instant createdAt

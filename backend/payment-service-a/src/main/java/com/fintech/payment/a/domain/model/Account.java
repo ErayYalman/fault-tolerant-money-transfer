@@ -136,6 +136,42 @@ public final class Account {
         return new DebitResult(balanceBefore, balanceAfter);
     }
 
+    public CreditResult credit(
+            BigDecimal amount,
+            String transactionCurrency,
+            Instant now) {
+
+        Objects.requireNonNull(amount, "amount must not be null");
+        Objects.requireNonNull(
+                transactionCurrency,
+                "transactionCurrency must not be null");
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (amount.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "amount must be greater than zero");
+        }
+
+        if (status != AccountStatus.ACTIVE) {
+            throw new AccountNotActiveException();
+        }
+
+        String normalizedTransactionCurrency =
+                normalizeCurrency(transactionCurrency);
+
+        if (!currency.equals(normalizedTransactionCurrency)) {
+            throw new CurrencyMismatchException();
+        }
+
+        BigDecimal balanceBefore = balance;
+        BigDecimal balanceAfter = balance.add(amount);
+
+        this.balance = balanceAfter;
+        this.updatedAt = now;
+
+        return new CreditResult(balanceBefore, balanceAfter);
+    }
+
     public ReversalResult reverseDebit(
             BigDecimal amount,
             String transactionCurrency,
@@ -172,6 +208,11 @@ public final class Account {
     }
 
     public record ReversalResult(
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter) {
+    }
+
+    public record CreditResult(
             BigDecimal balanceBefore,
             BigDecimal balanceAfter) {
     }

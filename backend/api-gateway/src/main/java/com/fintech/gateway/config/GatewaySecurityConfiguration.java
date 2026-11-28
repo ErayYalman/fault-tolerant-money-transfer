@@ -125,6 +125,11 @@ public class GatewaySecurityConfiguration {
                                                 .hasRole("CUSTOMER")
 
                                                 .pathMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/v1/accounts/internal-transfers")
+                                                .hasRole("CUSTOMER")
+
+                                                .pathMatchers(
                                                                 HttpMethod.GET,
                                                                 "/api/v1/recipients",
                                                                 "/api/v1/recipients/**")

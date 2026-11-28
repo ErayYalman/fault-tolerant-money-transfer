@@ -91,7 +91,7 @@ function formatEntryAmount(
     return `− ${formatted}`
   }
 
-  if (entryType === "REVERSAL") {
+  if (entryType === "CREDIT" || entryType === "REVERSAL") {
     return `+ ${formatted}`
   }
 
@@ -119,6 +119,9 @@ function getEntryTypeLabel(type: string | undefined): string {
   switch (type) {
     case "DEBIT":
       return "Para çıkışı"
+
+    case "CREDIT":
+      return "Para girişi"
 
     case "REVERSAL":
       return "Debit telafisi"
@@ -210,9 +213,11 @@ function LedgerEntryCard({
   entry: LedgerEntry
   currency: string | undefined
 }) {
-  const isReversal = entry.entryType === "REVERSAL"
+  const isIncoming =
+    entry.entryType === "CREDIT" ||
+    entry.entryType === "REVERSAL"
 
-  const Icon = isReversal ? ArrowDownLeft : ArrowUpRight
+  const Icon = isIncoming ? ArrowDownLeft : ArrowUpRight
 
   return (
     <Card className="shadow-none">
@@ -221,7 +226,7 @@ function LedgerEntryCard({
           <div className="flex min-w-0 items-center gap-3">
             <div
               className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
-                isReversal
+                isIncoming
                   ? "bg-primary/10 text-primary"
                   : "bg-muted text-muted-foreground"
               }`}
@@ -247,7 +252,7 @@ function LedgerEntryCard({
 
             <p
               className={`text-lg font-semibold tabular-nums ${
-                isReversal ? "text-primary" : "text-foreground"
+                isIncoming ? "text-primary" : "text-foreground"
               }`}
             >
               {formatEntryAmount(
