@@ -91,13 +91,13 @@ public class ReconciliationSecurityConfiguration {
                                                                 "/actuator/health/**")
                                                 .permitAll()
 
-                                                // OpenAPI / Swagger UI documentation.
+                                                // OpenAPI / Swagger UI documentation requires a valid bearer token.
                                                 .requestMatchers(
                                                                 "/v3/api-docs",
                                                                 "/v3/api-docs/**",
                                                                 "/swagger-ui/**",
                                                                 "/swagger-ui.html")
-                                                .permitAll()
+                                                .authenticated()
 
                                                 // Manual reconciliation and operational monitoring.
                                                 .requestMatchers(

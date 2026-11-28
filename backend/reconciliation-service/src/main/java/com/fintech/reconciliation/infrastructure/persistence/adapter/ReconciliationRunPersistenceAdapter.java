@@ -1,10 +1,13 @@
 package com.fintech.reconciliation.infrastructure.persistence.adapter;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +15,7 @@ import com.fintech.reconciliation.domain.model.AnomalyScoreRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationAnalysisResult;
 import com.fintech.reconciliation.domain.model.ReconciliationDiscrepancyRecord;
 import com.fintech.reconciliation.domain.model.ReconciliationPeriod;
+import com.fintech.reconciliation.domain.model.ReconciliationRunPage;
 import com.fintech.reconciliation.domain.model.ReconciliationRunRecord;
 import com.fintech.reconciliation.domain.port.out.ReconciliationRunStore;
 import com.fintech.reconciliation.infrastructure.persistence.entity.AnomalyScoreEntity;
@@ -149,6 +153,18 @@ public class ReconciliationRunPersistenceAdapter
                                 .toList();
         }
 
+        @Override
+        @Transactional(readOnly = true)
+        public List<ReconciliationRunRecord> findLatestCompletedRuns(
+                        LocalDate fromDate,
+                        LocalDate toDate) {
+
+                return runRepository.findLatestCompletedRuns(fromDate, toDate)
+                                .stream()
+                                .map(ReconciliationRunPersistenceAdapter::toRecord)
+                                .toList();
+        }
+
         private static ReconciliationRunRecord toRecord(
                         ReconciliationRunEntity entity) {
 
@@ -181,5 +197,30 @@ public class ReconciliationRunPersistenceAdapter
                                 entity.getModelVersion(),
                                 entity.isAnomaly(),
                                 entity.getScoredAt());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public ReconciliationRunPage findRuns(
+                        LocalDate fromDate,
+                        LocalDate toDate,
+                        int page,
+                        int size) {
+
+                Page<ReconciliationRunEntity> result =
+                                runRepository.findRunsInBusinessDateRange(
+                                                fromDate,
+                                                toDate,
+                                                PageRequest.of(page, size));
+
+                return new ReconciliationRunPage(
+                                result.getContent()
+                                                .stream()
+                                                .map(ReconciliationRunPersistenceAdapter::toRecord)
+                                                .toList(),
+                                result.getNumber(),
+                                result.getSize(),
+                                result.getTotalElements(),
+                                result.getTotalPages());
         }
 }

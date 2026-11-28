@@ -1,8 +1,10 @@
 package com.fintech.reconciliation.presentation.rest;
 
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fintech.reconciliation.application.service.ReconciliationExecutionException;
@@ -17,8 +20,10 @@ import com.fintech.reconciliation.application.service.ReconciliationRunNotFoundE
 import com.fintech.reconciliation.application.service.ReconciliationRunQueryService;
 import com.fintech.reconciliation.application.service.ReconciliationRunService;
 import com.fintech.reconciliation.presentation.dto.ManualReconciliationRequest;
+import com.fintech.reconciliation.presentation.dto.ReconciliationDailySummaryResponse;
 import com.fintech.reconciliation.presentation.dto.ReconciliationExecutionError;
 import com.fintech.reconciliation.presentation.dto.ReconciliationRunDetailsResponse;
+import com.fintech.reconciliation.presentation.dto.ReconciliationRunsPageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -104,6 +109,121 @@ public class ReconciliationController {
                             exception.getRunId(),
                             "Reconciliation failed. Inspect the run details "
                                     + "using the returned runId."));
+        }
+    }
+
+    @Operation(
+            summary = "List reconciliation runs",
+            description = """
+                    Lists all reconciliation runs within an inclusive
+                    business-date range, including repeated manual runs
+                    and failed runs. Results are ordered by business date,
+                    start time and run ID in descending order.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Reconciliation runs retrieved"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid date range or pagination parameters"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Authentication required"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "OPERATIONS or ADMIN role required"
+            )
+    })
+    @GetMapping("/runs")
+    public ResponseEntity<?> listRuns(
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate fromDate,
+
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate toDate,
+
+            @RequestParam(defaultValue = "0")
+            int page,
+
+            @RequestParam(defaultValue = "20")
+            int size) {
+
+        try {
+            ReconciliationRunsPageResponse response =
+                    queryService.listRuns(
+                            fromDate,
+                            toDate,
+                            page,
+                            size);
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("message", exception.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "Get daily reconciliation summary",
+            description = """
+                    Returns daily reconciliation metrics for the requested
+                    business date range. Only the latest COMPLETED run
+                    for each business date is included. Days without a
+                    completed run are omitted. Anomaly scoring status and
+                    failure counts are included to indicate incomplete scoring.
+                    """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Daily reconciliation summary returned",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(
+                                    implementation = ReconciliationDailySummaryResponse.class
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid date range"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Authentication required"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "OPERATIONS or ADMIN role required"
+            )
+    })
+    @GetMapping("/reports/summary")
+    public ResponseEntity<?> getDailySummary(
+            @RequestParam(name = "fromDate")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate fromDate,
+
+            @RequestParam(name = "toDate")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate toDate) {
+
+        try {
+            return ResponseEntity.ok(
+                    queryService.getDailySummary(fromDate, toDate));
+
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of("message", exception.getMessage()));
         }
     }
 

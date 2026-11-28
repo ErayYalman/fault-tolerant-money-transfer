@@ -222,6 +222,14 @@ class ReconciliationRunApiIntegrationTest {
                                 .has("/api/v1/reconciliation/runs/{id}"))
                                 .isTrue();
 
+                assertThat(openApi.path("paths")
+                                .has("/api/v1/reconciliation/runs"))
+                                .isTrue();
+
+                assertThat(openApi.path("paths")
+                                .has("/api/v1/reconciliation/reports/summary"))
+                                .isTrue();
+
                 assertThat(openApi.at(
                                 "/components/schemas/ReconciliationRunDetailsResponse/properties")
                                 .has("anomalyScores"))
@@ -294,6 +302,294 @@ class ReconciliationRunApiIntegrationTest {
                                 .isEqualTo(HttpStatus.NOT_FOUND);
         }
 
+        @Test
+        void shouldListAllRunsWithinInclusiveDateRangeWithPagination()
+                        throws Exception {
+
+                when(analysisService.analyze(
+                                any(Instant.class),
+                                any(Instant.class)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                1,
+                                                List.of()));
+
+                assertThat(postRun("2026-10-18").getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                assertThat(postRun("2026-10-19").getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                assertThat(postRun("2026-10-19").getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                ResponseEntity<String> firstPageResponse = getRuns(
+                                "2026-10-18",
+                                "2026-10-20",
+                                0,
+                                2,
+                                "operations-test-token");
+
+                assertThat(firstPageResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode firstPage = objectMapper.readTree(
+                                firstPageResponse.getBody());
+
+                assertThat(firstPage.path("totalElements").asLong())
+                                .isEqualTo(3);
+
+                assertThat(firstPage.path("totalPages").asInt())
+                                .isEqualTo(2);
+
+                assertThat(firstPage.path("page").asInt())
+                                .isZero();
+
+                assertThat(firstPage.path("size").asInt())
+                                .isEqualTo(2);
+
+                JsonNode firstContent = firstPage.path("content");
+
+                assertThat(firstContent).hasSize(2);
+
+                // Aynı iş gününde yapılan iki manuel koşu kaybolmamalı.
+                assertThat(firstContent.get(0).path("businessDate").asText())
+                                .isEqualTo("2026-10-19");
+
+                assertThat(firstContent.get(1).path("businessDate").asText())
+                                .isEqualTo("2026-10-19");
+
+                assertThat(firstContent.get(0).path("runType").asText())
+                                .isEqualTo("MANUAL");
+
+                assertThat(firstContent.get(0).path("status").asText())
+                                .isEqualTo("COMPLETED");
+
+                ResponseEntity<String> secondPageResponse = getRuns(
+                                "2026-10-18",
+                                "2026-10-20",
+                                1,
+                                2,
+                                "operations-test-token");
+
+                assertThat(secondPageResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode secondPage = objectMapper.readTree(
+                                secondPageResponse.getBody());
+
+                assertThat(secondPage.path("content")).hasSize(1);
+
+                assertThat(secondPage.at("/content/0/businessDate").asText())
+                                .isEqualTo("2026-10-18");
+
+                assertThat(secondPage.at("/content/0/runId").asText())
+                                .isNotEqualTo(
+                                                firstContent.get(0).path("runId").asText());
+
+                // Tarih filtresinin iki ucu da dahil edilmeli.
+                ResponseEntity<String> singleDayResponse = getRuns(
+                                "2026-10-19",
+                                "2026-10-19",
+                                0,
+                                10,
+                                "operations-test-token");
+
+                JsonNode singleDay = objectMapper.readTree(
+                                singleDayResponse.getBody());
+
+                assertThat(singleDay.path("totalElements").asLong())
+                                .isEqualTo(2);
+        }
+
+        @Test
+        void shouldRejectInvalidReconciliationRunDateRange() {
+
+                ResponseEntity<String> response = getRuns(
+                                "2026-10-20",
+                                "2026-10-19",
+                                0,
+                                20,
+                                "operations-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void shouldRejectReconciliationRunListWithoutBearerToken() {
+
+                ResponseEntity<String> response = getRuns(
+                                "2026-10-01",
+                                "2026-10-31",
+                                0,
+                                20,
+                                null);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void shouldRejectCustomerFromReconciliationRunList() {
+
+                ResponseEntity<String> response = getRuns(
+                                "2026-10-01",
+                                "2026-10-31",
+                                0,
+                                20,
+                                "customer-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        void shouldAggregateOnlyLatestCompletedRunForEachBusinessDate()
+                        throws Exception {
+
+                AnomalyScoreRecord firstScore = new AnomalyScoreRecord(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                0.92,
+                                "iforest-synthetic-v2",
+                                true,
+                                Instant.parse("2026-10-20T00:00:00Z"));
+
+                AnomalyScoreRecord secondScore = new AnomalyScoreRecord(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                0.15,
+                                "iforest-synthetic-v2",
+                                false,
+                                Instant.parse("2026-10-20T00:00:00Z"));
+
+                when(analysisService.analyze(
+                                any(Instant.class),
+                                any(Instant.class)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                3,
+                                                List.of(),
+                                                List.of(firstScore)))
+                                .thenReturn(new ReconciliationAnalysisResult(
+                                                7,
+                                                List.of(),
+                                                List.of(secondScore)))
+                                .thenThrow(new IllegalStateException(
+                                                "Remote service unavailable"));
+
+                ResponseEntity<String> firstRunResponse = postRun("2026-10-20");
+
+                assertThat(firstRunResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                UUID firstRunId = UUID.fromString(
+                                objectMapper.readTree(firstRunResponse.getBody())
+                                                .path("runId").asText());
+
+                // Ensure the second successful run is unambiguously newer.
+                jdbcTemplate.update(
+                                """
+                                UPDATE reconciliation_runs
+                                SET started_at = TIMESTAMPTZ '2026-10-20 00:00:00+00'
+                                WHERE id = ?
+                                """,
+                                firstRunId);
+
+                ResponseEntity<String> secondRunResponse = postRun("2026-10-20");
+
+                assertThat(secondRunResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                UUID secondRunId = UUID.fromString(
+                                objectMapper.readTree(secondRunResponse.getBody())
+                                                .path("runId").asText());
+
+                // A later failed run must not replace the latest completed run.
+                ResponseEntity<String> failedSameDayResponse = postRun("2026-10-20");
+
+                assertThat(failedSameDayResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_GATEWAY);
+
+                // A day with only a failed run must not appear in the summary.
+                ResponseEntity<String> failedOnlyResponse = postRun("2026-10-19");
+
+                assertThat(failedOnlyResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_GATEWAY);
+
+                ResponseEntity<String> summaryResponse = getDailySummary(
+                                "2026-10-18",
+                                "2026-10-20",
+                                "operations-test-token");
+
+                assertThat(summaryResponse.getStatusCode())
+                                .isEqualTo(HttpStatus.OK);
+
+                JsonNode summary = objectMapper.readTree(summaryResponse.getBody());
+
+                assertThat(summary.path("completedDays").asInt()).isEqualTo(1);
+                assertThat(summary.path("transfersChecked").asLong()).isEqualTo(7);
+                assertThat(summary.path("discrepanciesFound").asLong()).isZero();
+                assertThat(summary.path("anomaliesFound").asLong()).isZero();
+
+                assertThat(summary.path("daily").size()).isEqualTo(1);
+
+                JsonNode daily = summary.path("daily").get(0);
+
+                assertThat(daily.path("runId").asText())
+                                .isEqualTo(secondRunId.toString());
+
+                assertThat(daily.path("businessDate").asText())
+                                .isEqualTo("2026-10-20");
+
+                assertThat(daily.path("transfersChecked").asInt())
+                                .isEqualTo(7);
+
+                assertThat(daily.path("anomaliesFound").asInt())
+                                .isZero();
+
+                assertThat(daily.path("anomalyScoringStatus").asText())
+                                .isEqualTo("COMPLETED");
+
+                assertThat(summary.path("incompleteAnomalyScoringDays").asInt())
+                                .isZero();
+        }
+
+        @Test
+        void shouldRejectDailySummaryWithInvalidDateRange() {
+
+                ResponseEntity<String> response = getDailySummary(
+                                "2026-10-20",
+                                "2026-10-19",
+                                "operations-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+
+        @Test
+        void shouldRejectDailySummaryWithoutBearerToken() {
+
+                ResponseEntity<String> response = getDailySummary(
+                                "2026-10-01",
+                                "2026-10-31",
+                                null);
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+        @Test
+        void shouldRejectCustomerFromDailySummary() {
+
+                ResponseEntity<String> response = getDailySummary(
+                                "2026-10-01",
+                                "2026-10-31",
+                                "customer-test-token");
+
+                assertThat(response.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
         private ResponseEntity<String> postRun(String businessDate) {
                 return postRun(businessDate, "operations-test-token");
         }
@@ -318,6 +614,56 @@ class ReconciliationRunApiIntegrationTest {
                 return restTemplate.postForEntity(
                                 baseUrl() + "/api/v1/reconciliation/run",
                                 new HttpEntity<>(body, headers),
+                                String.class);
+        }
+
+        private ResponseEntity<String> getRuns(
+                        String fromDate,
+                        String toDate,
+                        int page,
+                        int size,
+                        String token) {
+
+                HttpHeaders headers = new HttpHeaders();
+
+                if (token != null) {
+                        headers.setBearerAuth(token);
+                }
+
+                String url = baseUrl()
+                                + "/api/v1/reconciliation/runs"
+                                + "?fromDate=" + fromDate
+                                + "&toDate=" + toDate
+                                + "&page=" + page
+                                + "&size=" + size;
+
+                return restTemplate.exchange(
+                                url,
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
+                                String.class);
+        }
+
+        private ResponseEntity<String> getDailySummary(
+                        String fromDate,
+                        String toDate,
+                        String token) {
+
+                HttpHeaders headers = new HttpHeaders();
+
+                if (token != null) {
+                        headers.setBearerAuth(token);
+                }
+
+                String url = baseUrl()
+                                + "/api/v1/reconciliation/reports/summary"
+                                + "?fromDate=" + fromDate
+                                + "&toDate=" + toDate;
+
+                return restTemplate.exchange(
+                                url,
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers),
                                 String.class);
         }
 
